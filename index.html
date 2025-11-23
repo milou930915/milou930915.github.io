@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>高分子派對 (QR版)</title>
+    
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Varela+Round&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #E0F7FA;
+            --red: #FF6B6B; --blue: #4D96FF; --green: #6BCB77; --yellow: #FFD93D; --purple: #9A67EA;
+            --text-color: #444;
+        }
+        body {
+            font-family: 'Varela Round', sans-serif; margin: 0; background-color: var(--bg-color);
+            background-image: radial-gradient(#B2EBF2 15%, transparent 16%), radial-gradient(#B2EBF2 15%, transparent 16%);
+            background-size: 60px 60px; background-position: 0 0, 30px 30px;
+            color: var(--text-color); overflow: hidden; height: 100vh; display: flex; flex-direction: column;
+        }
+        .btn {
+            border: none; outline: none; cursor: pointer; font-family: 'Varela Round', sans-serif; font-weight: bold;
+            border-radius: 20px; transition: all 0.1s; box-shadow: 0 6px 0 rgba(0,0,0,0.2);
+            text-transform: uppercase; display: flex; align-items: center; justify-content: center;
+        }
+        .btn:active { transform: translateY(6px); box-shadow: 0 0 0 rgba(0,0,0,0.2); }
+
+        /* 1. 起始頁 */
+        #start-screen {
+            position: absolute; width: 100%; height: 100%; z-index: 100;
+            background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px;
+        }
+        .logo {
+            background: white; padding: 20px 40px; border-radius: 30px;
+            font-size: 3.5rem; color: var(--blue); box-shadow: 0 10px 20px rgba(0,0,0,0.2); transform: rotate(-3deg);
+        }
+
+        /* 2. 電腦介面 */
+        #teacher-ui { display: none; width: 100%; height: 100%; flex-direction: column; }
+        .hud {
+            height: 12%; display: flex; justify-content: center; gap: 20px; align-items: center;
+            background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); padding: 0 10px;
+        }
+        .score-card {
+            background: white; padding: 8px 20px; border-radius: 50px; font-size: 1.2rem; 
+            display: flex; align-items: center; gap: 5px; box-shadow: 0 4px 0 #ddd; border: 3px solid transparent; transition: 0.3s;
+        }
+        .score-card.active { transform: scale(1.1) translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.15); border-color: currentColor;}
+
+        .board-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 10px; position: relative; }
+        .board { display: grid; grid-template-columns: repeat(10, 1fr); grid-template-rows: repeat(5, 1fr); gap: 8px; width: 95%; height: 85%; max-width: 1400px; }
+
+        .cell {
+            background: white; border-radius: 15px; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-size: 1.2rem; font-weight: bold; color: #ddd; box-shadow: 0 4px 0 #cbd5e1; position: relative; border: 2px solid #ecf0f1;
+        }
+        .cell.Start { background: #FFD3B6; color: #ff6b6b; border: none;}
+        .cell.Finish { background: #FFD93D; color: #d35400; border: 3px solid #ff9f43;}
+        
+        .token {
+            width: 40px; height: 40px; border-radius: 50%; position: absolute; z-index: 10;
+            background: white; border: 3px solid white; box-shadow: 0 5px 10px rgba(0,0,0,0.3);
+            display: flex; justify-content: center; align-items: center; font-size: 1.5rem;
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer;
+        }
+        
+        /* QR Code 卡片 */
+        .qr-card {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: white; padding: 30px; border-radius: 25px; width: 320px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center; display: none; z-index: 150;
+            animation: popIn 0.5s;
+        }
+        @keyframes popIn { from { transform: translate(-50%, -50%) scale(0); } to { transform: translate(-50%, -50%) scale(1); } }
+        #qrcode { margin: 20px auto; display: flex; justify-content: center; }
+
+        /* 3. 手機介面 */
+        #student-ui { display: none; width: 100%; height: 100%; flex-direction: column; background: #f0f2f5; }
+        .mobile-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        
+        /* 自動連線載入畫面 */
+        .loading-screen { text-align:center; color: var(--blue); }
+
+        /* 備用登入 */
+        .login-card { background: white; padding: 30px; border-radius: 30px; width: 90%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; }
+        .code-input { width: 80%; padding: 15px; font-size: 2rem; text-align: center; border-radius: 15px; border: 3px solid #eee; margin-bottom: 20px; outline: none; color: var(--blue); font-weight: bold; text-transform: uppercase;}
+
+        .team-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; }
+        
+        .pad-msg { font-size: 2rem; color: #333; margin-bottom: 30px; font-weight: bold; text-align:center;}
+        .big-action-btn { width: 250px; height: 250px; border-radius: 50%; font-size: 3rem; background: var(--yellow); color: #8a6d0b; box-shadow: 0 15px 0 #d4b106; }
+        .big-action-btn:active { transform: translateY(15px); box-shadow: 0 0 0 #d4b106; }
+        .ans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 400px; }
+        .ans-btn { height: 100px; font-size: 2rem; color: white; border-radius: 20px; }
+
+        /* 彈窗 */
+        .modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 200; }
+        .modal-card { background: white; width: 90%; max-width: 650px; padding: 40px; border-radius: 30px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); animation: bounceIn 0.4s; max-height: 90vh; overflow-y: auto;}
+        @keyframes bounceIn { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+        
+        .opt-row { background: #f8f9fa; padding: 20px; margin: 10px 0; border-radius: 15px; text-align: left; font-size: 1.3rem; border: 3px solid transparent; cursor: pointer; transition: background 0.2s; }
+        .opt-row:hover { background: #e3f2fd; } 
+        .opt-row.correct { background: #e8f5e9; border-color: var(--green); color: var(--green); font-weight: bold;}
+        .opt-row.wrong { background: #ffebee; border-color: var(--red); color: var(--red); }
+        .event-icon { font-size: 5rem; margin-bottom: 20px; animation: pop 0.5s; display: block;}
+        @keyframes pop { 0% { transform: scale(0); } 80% { transform: scale(1.2); } 100% { transform: scale(1); } }
+
+        .target-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .target-btn { padding: 20px; font-size: 1.2rem; color: white; border-radius: 15px; }
+    </style>
+</head>
+<body>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSfx(name) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            osc.connect(g); g.connect(audioCtx.destination);
+            if(name==='roll'){osc.type='triangle';osc.frequency.setValueAtTime(200,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.2);osc.start();osc.stop(audioCtx.currentTime+0.2);}
+            if(name==='win'){osc.type='sine';osc.frequency.setValueAtTime(400,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.5);osc.start();osc.stop(audioCtx.currentTime+0.5);}
+            if(name==='fail'){osc.type='sawtooth';osc.frequency.setValueAtTime(150,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.3);osc.start();osc.stop(audioCtx.currentTime+0.3);}
+        }
+        function vibe(p) { if(navigator.vibrate) navigator.vibrate(p); }
+    </script>
+
+    <div id="start-screen">
+        <div class="logo">🧪 高分子派對</div>
+        <div style="text-align:center;">
+            <button class="btn" style="background:var(--blue); color:white; padding:20px 60px; font-size:1.8rem; margin-bottom:20px;" onclick="startTeacher()">
+                💻 電腦端 (建立)
+            </button>
+            <br>
+            <button class="btn" style="background:white; color:var(--blue); padding:15px 40px; font-size:1.2rem;" onclick="showManualLogin()">
+                📱 手機端 (手動輸入)
+            </button>
+            <div id="auto-msg" style="color:white; opacity:0.8; margin-top:20px; display:none;">正在自動加入...</div>
+        </div>
+    </div>
+
+    <div id="teacher-ui">
+        <div class="hud">
+            <div id="card-0" class="score-card" style="color:var(--red)"><span>🐯 第一組</span> <span id="s0">0</span></div>
+            <div id="card-1" class="score-card" style="color:var(--blue)"><span>🐳 第二組</span> <span id="s1">0</span></div>
+            <div id="card-2" class="score-card" style="color:var(--green)"><span>🐸 第三組</span> <span id="s2">0</span></div>
+            <div id="card-3" class="score-card" style="color:var(--yellow)"><span>🦁 第五組</span> <span id="s3">0</span></div>
+            <button class="btn" onclick="showQR()" style="margin-left:auto; background:#eee; color:#666; padding:10px 20px;">QR</button>
+        </div>
+        <div class="board-container"><div class="board" id="board"></div></div>
+        
+        <div id="qr-card" class="qr-card">
+            <h3 style="color:#888; margin:0;">掃描加入 (免輸入)</h3>
+            <div id="qrcode"></div>
+            <div style="margin: 10px 0; color:#555;">或輸入代碼：<span id="room-code-text" style="font-weight:bold; font-size:1.5rem; color:var(--blue);"></span></div>
+            <div id="conn-text" style="color:#aaa; margin-top:10px;">等待連線...</div>
+            <button class="btn" style="background:var(--green); color:white; width:100%; margin-top:15px; padding:15px;" onclick="hideQR()">開始遊戲</button>
+            <button class="btn" style="background:#999; color:white; width:100%; margin-top:10px; padding:10px;" onclick="switchOffline()">連不上？切換單機</button>
+        </div>
+    </div>
+
+    <div id="student-ui">
+        <div id="login-screen" class="mobile-center" style="display:none;">
+            <div class="login-card">
+                <h2 style="color:var(--blue); margin-top:0;">輸入代碼</h2>
+                <input type="text" id="input-room" class="code-input" placeholder="代碼" maxlength="4">
+                <button class="btn" style="background:var(--green); color:white; padding:15px 40px; width:100%; font-size:1.5rem;" onclick="manualConnect()">加入</button>
+            </div>
+        </div>
+
+        <div id="team-select-screen" class="mobile-center" style="display:none;">
+            <h2 style="color:var(--blue); margin-top:0;">請選擇組別</h2>
+            <div class="team-grid">
+                <button class="btn" style="background:var(--red); color:white; padding:25px;" onclick="joinGame(0)">🐯 第一組</button>
+                <button class="btn" style="background:var(--blue); color:white; padding:25px;" onclick="joinGame(1)">🐳 第二組</button>
+                <button class="btn" style="background:var(--green); color:white; padding:25px;" onclick="joinGame(2)">🐸 第三組</button>
+                <button class="btn" style="background:var(--yellow); color:black; padding:25px;" onclick="joinGame(3)">🦁 第五組</button>
+            </div>
+        </div>
+
+        <div id="pad-screen" class="mobile-center" style="display:none;">
+            <div id="pad-msg" class="pad-msg">等待中...</div>
+            <div id="pad-dice" style="display:none;"><button class="btn big-action-btn" onclick="sendCmd('ROLL')">🎲</button></div>
+            <div id="pad-quiz" style="display:none; width:100%; justify-content:center;">
+                <div class="ans-grid">
+                    <button class="btn ans-btn" style="background:var(--red)" onclick="sendCmd('ANS',0)">A</button>
+                    <button class="btn ans-btn" style="background:var(--blue)" onclick="sendCmd('ANS',1)">B</button>
+                    <button class="btn ans-btn" style="background:var(--green)" onclick="sendCmd('ANS',2)">C</button>
+                    <button class="btn ans-btn" style="background:var(--yellow); color:black" onclick="sendCmd('ANS',3)">D</button>
+                </div>
+            </div>
+            <div id="pad-target" style="display:none; width:100%; justify-content:center;">
+                <div class="ans-grid">
+                    <button class="btn ans-btn" style="background:var(--red)" onclick="sendCmd('TARGET',0)">一</button>
+                    <button class="btn ans-btn" style="background:var(--blue)" onclick="sendCmd('TARGET',1)">二</button>
+                    <button class="btn ans-btn" style="background:var(--green)" onclick="sendCmd('TARGET',2)">三</button>
+                    <button class="btn ans-btn" style="background:var(--yellow); color:black" onclick="sendCmd('TARGET',3)">五</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal" class="modal-mask"><div class="modal-card"><div id="modal-content"></div></div></div>
+
+    <script>
+        // 題庫
+        const questions = [
+            {q:"1.高分子的分子結構一般是？", o:["很小原子", "長鏈狀", "金屬排列", "氣體分子"], a:1},
+            {q:"2.下列何者是「熱固性塑膠」？", o:["膠帶", "保麗龍", "酚醛樹脂", "寶特瓶"], a:2},
+            {q:"3.最常拿來做「透明薄膜」？", o:["PE", "PS", "PP", "PVC"], a:3},
+            {q:"4.可以自然分解的高分子？", o:["PLA", "PS", "PVC", "PE"], a:0},
+            {q:"5.下列哪項是天然高分子？", o:["蛋白質", "玻璃", "石頭", "氣體"], a:0},
+            {q:"6.高分子最基本結構單元？", o:["單體", "聚合物", "寡聚物", "重複單元"], a:0},
+            {q:"7.提升結晶度的因素？", o:["增加支鏈", "降低規則性", "線性結構", "共聚比例"], a:2},
+            {q:"8.「聚合」的意思是？", o:["分裂", "連接起來", "分解", "蒸發"], a:1},
+            {q:"9.加熱後可重複熔化？", o:["熱固性", "熔岩", "熱塑性", "石頭"], a:2},
+            {q:"10.鏈越長，分子量通常？", o:["不變", "變小", "變大", "隨便"], a:2},
+            {q:"11.高分子用途不包括？", o:["包裝", "建築", "電子", "金屬製品"], a:3},
+            {q:"12.天然來源提取的高分子？", o:["PE", "PS", "PLA", "纖維素"], a:3},
+            {q:"13.物理性質不受何者影響？", o:["溫度", "分子量", "結構", "顏色"], a:3},
+            {q:"14.PE 氫被氯取代後變成？", o:["PP", "PS", "PVC", "PET"], a:2},
+            {q:"15.複合材料設計目的？", o:["降成本", "降分子量", "結合特性", "限制性能"], a:2},
+            {q:"16.熱固性高分子描述？", o:["重複熔融", "軟化", "天然", "不可再熔"], a:3},
+            {q:"17.天然高分子是？", o:["ABS", "尼龍", "纖維素", "PS"], a:2},
+            {q:"18.PE 的單體是？", o:["乙烯", "苯", "氨", "氯化鈉"], a:0},
+            {q:"19.高分子的「高」是指？", o:["密度", "電導率", "分子量", "熔點"], a:2},
+            {q:"20.由丙烯單體製成？", o:["PP", "PE", "PVC", "PS"], a:0},
+            {q:"21.熱塑性塑膠例子？", o:["環氧樹脂", "聚碳酸酯", "酚醛", "聚氨酯"], a:1},
+            {q:"22.強度通常與何有關？", o:["分子量", "顏色", "形狀", "氣味"], a:0},
+            {q:"23.非熱塑性特性？", o:["重複成型", "不可逆交聯", "范德華力", "常見PE"], a:1},
+            {q:"24.加成聚合反應？", o:["PLA", "尼龍", "聚苯乙烯", "聚氨酯"], a:2},
+            {q:"25.結晶區比例越高？", o:["透明", "密度低", "強度高", "Tg增加"], a:2},
+            {q:"26.生物可降解聚合物？", o:["PS", "PLA", "PVC", "PE"], a:1},
+            {q:"27.分子量分布變寬？", o:["活性聚合", "時間短", "控制精確", "鏈轉移"], a:3},
+            {q:"28.聚合度增加時？", o:["分子量增", "分子量減", "變金屬", "變透明"], a:0},
+            {q:"29.黏度高的主因？", o:["鏈段纏結", "流動快", "氣態", "無作用力"], a:0},
+            {q:"30.熱塑性特性？", o:["不易回收", "結構穩定", "交聯", "重複熔融"], a:3},
+            {q:"31.縮合聚合反應？", o:["PP", "PVC", "PET", "PE"], a:2},
+            {q:"32.熱變形溫度有關？", o:["分子量", "結晶度", "顏色", "形狀"], a:1},
+            {q:"33.熱固性例子？", o:["環氧樹脂", "聚氨酯", "PP", "PE"], a:0},
+            {q:"34.耐熱性有關？", o:["分子結構", "顏色", "形狀", "氣味"], a:0},
+            {q:"35.合成高分子例子？", o:["蛋白質", "天然橡膠", "PVC", "纖維素"], a:2}
+        ];
+
+        let peer, conn, myTeam = -1, roomId = "", turn = 0, state = "IDLE", currentQ = null;
+        let connections = [];
+        let players = [
+            {n:"第一組", c:"var(--red)", p:0, s:0}, {n:"第二組", c:"var(--blue)", p:0, s:0},
+            {n:"第三組", c:"var(--green)", p:0, s:0}, {n:"第五組", c:"var(--yellow)", p:0, s:0}
+        ];
+        const mapSize = 50; const cols = 10;
+        let mapCells = [];
+        const ID_PREFIX = "chem-party-2025-";
+
+        // 自動偵測掃碼
+        window.onload = function() {
+            const hash = window.location.hash;
+            if (hash && hash.startsWith("#room=")) {
+                const id = hash.split('=')[1];
+                if (id) {
+                    document.getElementById('start-screen').style.display = 'none';
+                    document.getElementById('auto-msg').style.display = 'block';
+                    startStudent(id);
+                }
+            }
+            initMap();
+        };
+
+        function initMap() {
+            mapCells = new Array(mapSize).fill("Q");
+            mapCells[0] = "Start"; mapCells[mapSize-1] = "Finish";
+            const sps = [{t:"Steal", c:5}, {t:"Swap", c:5}, {t:"Good", c:6}, {t:"Bad", c:6}];
+            sps.forEach(sp => {
+                for(let i=0; i<sp.c; i++) {
+                    let r; do { r = Math.floor(Math.random()*(mapSize-2))+1; } while(mapCells[r] !== "Q");
+                    mapCells[r] = sp.t;
+                }
+            });
+        }
+
+        // === 電腦端 ===
+        function startTeacher() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('teacher-ui').style.display = 'flex';
+            renderBoard(); highlightTurn();
+            
+            // 產生隨機 4 位 ID
+            roomId = Math.random().toString(36).substring(2, 6).toUpperCase();
+            document.getElementById('room-code-text').innerText = roomId;
+            
+            try {
+                peer = new Peer(ID_PREFIX + roomId);
+                peer.on('open', id => {
+                    // 產生含參數的 QR Code
+                    const joinUrl = window.location.href.split('#')[0] + "#room=" + roomId;
+                    document.getElementById("qrcode").innerHTML = "";
+                    new QRCode(document.getElementById("qrcode"), { text: joinUrl, width: 200, height: 200 });
+                    document.getElementById('qr-card').style.display = 'block';
+                });
+                peer.on('connection', c => {
+                    connections.push(c);
+                    document.getElementById('conn-text').innerText = `${connections.length} 人已連線`;
+                    c.on('open', () => c.send({type:'STATE', turn:turn, state:state}));
+                    c.on('data', data => {
+                        if (data.team !== turn) return;
+                        if (data.cmd === 'ROLL' && state === 'IDLE') rollDice();
+                        if (data.cmd === 'ANS' && state === 'QUIZ') checkAnswer(data.val);
+                        if (data.cmd === 'TARGET' && state === 'SELECT_TARGET') executeAction(data.val);
+                    });
+                });
+                peer.on('error', e => {
+                    alert("連線初始化失敗 (可能被防火牆阻擋)");
+                    switchOffline();
+                });
+            } catch (e) { switchOffline(); }
+        }
+
+        function showQR() { document.getElementById('qr-card').style.display = 'block'; }
+        function hideQR() { document.getElementById('qr-card').style.display = 'none'; }
+        
+        function switchOffline() {
+            document.getElementById('qr-card').style.display = 'none';
+            alert("已切換為「單機模式」！\n老師可直接點擊棋子擲骰子、點擊選項回答問題。");
+        }
+
+        // === 手機端 ===
+        function showManualLogin() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('student-ui').style.display = 'flex';
+            document.getElementById('login-screen').style.display = 'flex';
+        }
+
+        function manualConnect() {
+            let code = document.getElementById('input-room').value.toUpperCase();
+            if(!code) return;
+            startStudent(code);
+        }
+
+        function startStudent(id) {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('student-ui').style.display = 'flex';
+            
+            try {
+                peer = new Peer();
+                peer.on('open', () => {
+                    conn = peer.connect(ID_PREFIX + id);
+                    conn.on('open', () => {
+                        document.getElementById('login-screen').style.display = 'none';
+                        document.getElementById('team-select-screen').style.display = 'flex';
+                        vibe(200);
+                    });
+                    conn.on('data', data => updatePad(data));
+                    conn.on('error', () => alert("找不到房間，請確認代碼"));
+                });
+                peer.on('error', () => alert("連線失敗，請檢查網路"));
+            } catch(e) { alert("瀏覽器不支援"); }
+        }
+
+        function joinGame(t) {
+            myTeam = t;
+            document.getElementById('team-select-screen').style.display = 'none';
+            document.getElementById('pad-screen').style.display = 'flex';
+        }
+
+        function sendCmd(cmd, val) { if(conn) conn.send({cmd:cmd, team:myTeam, val:val}); vibe(50); }
+
+        function updatePad(data) {
+            let isMyTurn = (data.turn === myTeam);
+            let status = document.getElementById('pad-msg');
+            document.getElementById('pad-dice').style.display = 'none';
+            document.getElementById('pad-quiz').style.display = 'none';
+            document.getElementById('pad-target').style.display = 'none';
+            if(isMyTurn) {
+                status.style.color = players[myTeam].c;
+                if(data.state === 'IDLE') {
+                    status.innerText = "👉 輪到你了！"; document.getElementById('pad-dice').style.display = 'flex'; vibe([100,50,100]);
+                } else if (data.state === 'QUIZ') {
+                    status.innerText = "👉 請作答！"; document.getElementById('pad-quiz').style.display = 'flex';
+                } else if (data.state === 'SELECT_TARGET') {
+                    status.innerText = "👉 選擇目標！"; document.getElementById('pad-target').style.display = 'flex';
+                } else status.innerText = "看大螢幕...";
+            } else {
+                status.style.color = "#888"; status.innerText = `等待 ${players[data.turn].n}...`;
+            }
+        }
+
+        // === 遊戲邏輯 (支援單機點擊) ===
+        function renderBoard() {
+            const board = document.getElementById('board');
+            for(let i=0; i<mapSize; i++) {
+                let d = document.createElement('div');
+                let type = mapCells[i];
+                d.className = 'cell'; 
+                let label = `<span>${i+1}</span>`;
+                if(type === 'Start') { d.classList.add('Start'); label = '<span>🚀</span>'; } 
+                else if (type === 'Finish') { d.classList.add('Finish'); label = '<span>🏆</span>'; }
+                d.innerHTML = label;
+                let row = Math.floor(i / cols) + 1; let col = (i % cols) + 1;
+                if (row % 2 === 0) col = (cols + 1) - col;
+                d.style.gridRow = row; d.style.gridColumn = col; d.id = `c-${i}`;
+                board.appendChild(d);
+            }
+            players.forEach((p, i) => {
+                let t = document.createElement('div');
+                t.className = 'token'; t.innerHTML = ["🐯","🐳","🐸","🦁"][i]; t.style.color = p.c; t.style.borderColor = p.c; t.id = `t-${i}`;
+                // 支援老師手動點擊棋子
+                t.onclick = () => { if(state==='IDLE' && confirm(`幫 ${p.n} 擲骰子？`)) rollDice(); };
+                updateTokenPos(i, 0); document.getElementById('board').appendChild(t);
+            });
+        }
+        function updateTokenPos(pid, cellIdx) {
+            let cell = document.getElementById(`c-${cellIdx}`);
+            let token = document.getElementById(`t-${pid}`);
+            cell.appendChild(token);
+            token.style.transform = `translate(${(pid%2)*12-6}px, ${Math.floor(pid/2)*12-6}px)`;
+        }
+        function highlightTurn() {
+            for(let i=0; i<4; i++) document.getElementById(`card-${i}`).classList.remove('active');
+            document.getElementById(`card-${turn}`).classList.add('active');
+        }
+
+        function rollDice() {
+            state = 'MOVING'; broadcast(); playSfx('roll');
+            let steps = Math.floor(Math.random()*6)+1;
+            let p = players[turn];
+            let c = 0;
+            let t = setInterval(()=>{
+                p.p++;
+                if(p.p >= mapSize - 1) {
+                    p.p = mapSize - 1; clearInterval(t); updateTokenPos(turn, p.p);
+                    victory(p.n); return;
+                }
+                updateTokenPos(turn, p.p); c++;
+                if(c >= steps) { clearInterval(t); checkEvent(p.p); }
+            }, 300);
+        }
+
+        function checkEvent(pos) {
+            let type = mapCells[pos];
+            if (type === 'Q') openQuiz();
+            else if (type === 'Good') showModal("✨ 好運！", "<span class='event-icon'>💎</span><br>運氣爆棚！+20分", true, ()=>{adjustScore(20); nextTurn();}, "var(--green)");
+            else if (type === 'Bad') showModal("💀 哎呀！", "<span class='event-icon'>💣</span><br>踩到地雷！-10分", true, ()=>{adjustScore(-10); nextTurn();}, "var(--red)");
+            else if (type === 'Steal') showModal("😈 搶奪！", "<span class='event-icon'>😈</span><br>搶分時刻！看手機或老師代選...", false, ()=>{state='SELECT_TARGET'; broadcast(); showTargetSelect('steal');}, "var(--purple)");
+            else if (type === 'Swap') showModal("⇄ 交換！", "<span class='event-icon'>⇄</span><br>換位時刻！看手機或老師代選...", false, ()=>{state='SELECT_TARGET'; broadcast(); showTargetSelect('swap');}, "var(--yellow)");
+            else nextTurn();
+        }
+
+        function showTargetSelect(action) {
+            // 老師端也顯示選擇面板
+            let title = action==='steal' ? "😈 搶奪時刻！" : "⇄ 交換時刻！";
+            let color = action==='steal' ? "var(--purple)" : "var(--yellow)";
+            let html = `
+                <h1 style="color:${color}; margin:0;">${title}</h1>
+                <p style="font-size:1.5rem; margin:20px 0;">請選擇對象：</p>
+                <div class="target-grid">
+                    <button class="btn target-btn" style="background:var(--red)" onclick="executeAction(0, '${action}')">🐯 第一組</button>
+                    <button class="btn target-btn" style="background:var(--blue)" onclick="executeAction(1, '${action}')">🐳 第二組</button>
+                    <button class="btn target-btn" style="background:var(--green)" onclick="executeAction(2, '${action}')">🐸 第三組</button>
+                    <button class="btn target-btn" style="background:var(--yellow); color:black" onclick="executeAction(3, '${action}')">🦁 第五組</button>
+                </div>
+            `;
+            document.getElementById('modal-content').innerHTML = html;
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function executeAction(tIdx, action) {
+            if (tIdx === turn) { alert("不能選自己！"); return; }
+            if(!action) {
+                // 手機傳來的只有val，需判斷當前格子類型
+                let type = mapCells[players[turn].p];
+                action = type==='Steal'?'steal':'swap';
+            }
+
+            if (action === 'steal') {
+                let amt = 20; if(players[tIdx].s < 20) amt = players[tIdx].s;
+                players[tIdx].s -= amt; players[turn].s += amt;
+                showModal("成功！", `從 ${players[tIdx].n} 搶了 ${amt} 分！`, true, ()=>{updateScores(); nextTurn();}, "var(--purple)");
+            } else if (action === 'swap') {
+                let tmp = players[turn].p; players[turn].p = players[tIdx].p; players[tIdx].p = tmp;
+                updateTokenPos(turn, players[turn].p); updateTokenPos(tIdx, players[tIdx].p);
+                showModal("成功！", `與 ${players[tIdx].n} 交換位置！`, true, ()=>nextTurn(), "var(--yellow)");
+            }
+        }
+
+        function openQuiz() {
+            state = 'QUIZ'; broadcast();
+            let idx = Math.floor(Math.random()*questions.length);
+            currentQ = questions[idx];
+            let html = `
+                <h2 style="margin:0 0 20px 0; font-size:1.8rem; color:#333;">${currentQ.q}</h2>
+                <div style="text-align:left;">
+                    ${currentQ.o.map((o,i) => `<div class="opt-row" onclick="checkAnswer(${i})"><b>${String.fromCharCode(65+i)}.</b> ${o}</div>`).join('')}
+                </div>
+                <h2 id="q-res" style="height:30px; margin-top:20px;"></h2>
+                <button id="q-next" class="btn" style="display:none; background:var(--blue); color:white; padding:10px 40px; margin:20px auto;" onclick="closeModal()">下一位</button>
+            `;
+            document.getElementById('modal-content').innerHTML = html;
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function checkAnswer(ans) {
+            let rows = document.querySelectorAll('.opt-row');
+            rows.forEach(r => r.onclick = null);
+
+            if(ans === currentQ.a) {
+                rows[ans].classList.add('correct');
+                document.getElementById('q-res').innerText = "答對了！"; document.getElementById('q-res').style.color = "var(--green)";
+                playSfx('win'); adjustScore(10);
+            } else {
+                rows[ans].classList.add('wrong'); 
+                rows[currentQ.a].classList.add('correct');
+                document.getElementById('q-res').innerText = "答錯了！"; document.getElementById('q-res').style.color = "var(--red)";
+                playSfx('fail');
+            }
+            document.getElementById('q-next').style.display = 'block';
+        }
+
+        function showModal(title, msg, btn, cb, color) {
+            document.getElementById('modal-content').innerHTML = `
+                <h1 style="color:${color}; margin:0;">${title}</h1>
+                <p style="font-size:1.5rem; color:#555; margin:20px 0;">${msg}</p>
+                ${btn ? `<button id="m-btn" class="btn" style="background:${color}; color:white; padding:10px 40px; margin:0 auto;">確定</button>` : ''}
+            `;
+            document.getElementById('modal').style.display = 'flex';
+            if(btn && cb) document.getElementById('m-btn').onclick = () => { document.getElementById('modal').style.display = 'none'; cb(); };
+        }
+
+        function victory(name) {
+            playSfx('win'); confetti({ particleCount: 300, spread: 100, origin: { y: 0.6 } });
+            showModal("冠軍！", `🏆 恭喜 ${name} 抵達終點！`, false, null, "var(--yellow)");
+        }
+
+        function closeModal() { document.getElementById('modal').style.display = 'none'; nextTurn(); }
+        function adjustScore(v) { players[turn].s += v; updateScores(); }
+        function updateScores() { for(let i=0; i<4; i++) document.getElementById(`s${i}`).innerText = players[i].s; }
+        function nextTurn() { turn = (turn + 1) % 4; state = 'IDLE'; highlightTurn(); broadcast(); }
+        function broadcast() { if(conn || connections.length>0) connections.forEach(c => c.send({type:'STATE', turn:turn, state:state})); }
+    </script>
+</body>
+</html>
