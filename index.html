@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>高分子派對 (修復版)</title>
+    <title>高分子派對 (終極修復版)</title>
     
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Varela+Round&display=swap" rel="stylesheet">
     
@@ -30,7 +30,7 @@
         .btn {
             border: none; outline: none; cursor: pointer; font-family: 'Varela Round', sans-serif; font-weight: bold;
             border-radius: 20px; transition: all 0.1s; box-shadow: 0 6px 0 rgba(0,0,0,0.2);
-            text-transform: uppercase; display: flex; align-items: center; justify-content: center;
+            text-transform: uppercase; display: flex; align-items: center; justify-content: center; user-select: none;
         }
         .btn:active { transform: translateY(6px); box-shadow: 0 0 0 rgba(0,0,0,0.2); }
 
@@ -43,10 +43,9 @@
         .logo {
             background: white; padding: 20px 40px; border-radius: 30px;
             font-size: 3rem; color: var(--blue); box-shadow: 0 10px 20px rgba(0,0,0,0.2); transform: rotate(-3deg);
-            margin-bottom: 20px;
+            margin-bottom: 20px; text-align: center;
         }
         
-        /* 角色選擇與輸入框 */
         .role-btn {
             width: 80%; max-width: 300px; padding: 20px; font-size: 1.5rem; color: white;
             border-radius: 20px; box-shadow: 0 8px 0 rgba(0,0,0,0.2);
@@ -55,8 +54,23 @@
             display: flex; gap: 10px; width: 80%; max-width: 300px;
         }
         #room-input {
-            flex: 1; padding: 15px; border-radius: 15px; border: none; font-size: 1.2rem; text-align: center;
-            outline: none; box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+            flex: 1; padding: 15px; border-radius: 15px; border: none; font-size: 1.5rem; text-align: center;
+            outline: none; box-shadow: 0 4px 0 rgba(0,0,0,0.1); font-weight: bold; color: #555;
+        }
+
+        /* 連線訊息 (修復看不見的問題) */
+        #conn-msg {
+            background: rgba(255,255,255,0.9);
+            color: var(--blue);
+            padding: 20px 40px;
+            border-radius: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
         }
 
         /* 2. 電腦端介面 */
@@ -77,7 +91,7 @@
             gap: 5px; width: 95%; height: 85%; max-width: 1400px;
         }
 
-        /* 格子 (盲盒) */
+        /* 格子 */
         .cell {
             background: white; border-radius: 10px; display: flex; flex-direction: column; justify-content: center; align-items: center;
             font-size: 1.2rem; font-weight: bold; color: #ddd; box-shadow: 0 4px 0 #cbd5e1; position: relative; border: 2px solid #ecf0f1;
@@ -85,7 +99,7 @@
         .cell.Start { background: #FFD3B6; color: #ff6b6b; border: none;}
         .cell.Finish { background: #FFD93D; color: #d35400; border: 3px solid #ff9f43;}
         
-        /* 棋子 (動物) */
+        /* 棋子 */
         .token {
             width: 40px; height: 40px; border-radius: 50%; position: absolute; z-index: 10;
             background: white; border: 3px solid white; box-shadow: 0 5px 10px rgba(0,0,0,0.3);
@@ -122,41 +136,42 @@
         
         /* 連線狀態 */
         .room-info { position: fixed; bottom: 10px; right: 10px; background:white; padding:5px 15px; border-radius:20px; box-shadow:0 2px 10px rgba(0,0,0,0.1); font-weight: bold; color:var(--blue); z-index: 300;}
+
+        /* Debug Log (畫面上方的小條條，讓你知道發生什麼事) */
+        #debug-log {
+            position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.5); color: #fff; font-size: 12px; padding: 2px; text-align: center; z-index: 9999; pointer-events: none;
+        }
     </style>
 </head>
 <body>
 
-    <script>
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playSfx(name) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
-            osc.connect(g); g.connect(audioCtx.destination);
-            if(name==='roll'){osc.type='triangle';osc.frequency.setValueAtTime(200,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.2);osc.start();osc.stop(audioCtx.currentTime+0.2);}
-            if(name==='win'){osc.type='sine';osc.frequency.setValueAtTime(400,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.5);osc.start();osc.stop(audioCtx.currentTime+0.5);}
-            if(name==='fail'){osc.type='sawtooth';osc.frequency.setValueAtTime(150,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.3);osc.start();osc.stop(audioCtx.currentTime+0.3);}
-        }
-        function vibe(p) { if(navigator.vibrate) navigator.vibrate(p); }
-    </script>
+    <div id="debug-log">準備就緒</div>
 
     <div id="start-screen">
         <div class="logo">🧪 高分子派對</div>
         
-        <button class="btn role-btn" style="background:var(--blue);" onclick="startTeacher()">
-            💻 我是電腦 (建立房間)
+        <button class="btn role-btn" style="background:var(--blue);" onclick="initAudio(); startTeacher()">
+            💻 我是電腦 (Host)
         </button>
         
         <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.5); width: 80%;"></div>
 
         <div class="input-group">
-            <input type="number" id="room-input" placeholder="輸入房間號碼" pattern="\d*">
+            <input type="tel" id="room-input" placeholder="輸入房間號碼" maxlength="4">
         </div>
-        <button class="btn role-btn" style="background:white; color:var(--blue);" onclick="startStudent()">
+        <button class="btn role-btn" style="background:white; color:var(--blue);" onclick="initAudio(); startStudent()">
             📱 手機加入
         </button>
         
-        <div id="conn-msg" style="color:white; margin-top:20px; display:none;">連線中...</div>
-        <button class="btn" style="background:rgba(0,0,0,0.2); color:white; font-size:0.8rem; margin-top:20px; padding:10px 20px;" onclick="startOffline()">⚠️ 連不上？點我玩單機</button>
+        <button class="btn" style="background:rgba(0,0,0,0.2); color:white; font-size:0.9rem; margin-top:20px; padding:10px 20px;" onclick="startOffline()">
+            ⚠️ 還是連不上？點我單機玩
+        </button>
+    </div>
+
+    <div id="conn-msg">
+        <div class="spinner">🔄</div>
+        <div>正在搜尋房間...</div>
+        <div style="font-size: 0.9rem; color:#888" id="conn-detail">請稍候</div>
     </div>
 
     <div id="teacher-ui">
@@ -205,7 +220,25 @@
     <div id="modal" class="modal-mask"><div class="modal-card"><div id="modal-content"></div></div></div>
 
     <script>
-        // === 題庫 ===
+        // === 音效與系統 ===
+        let audioCtx;
+        function initAudio() {
+            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playSfx(name) {
+            if(!audioCtx) return;
+            const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            osc.connect(g); g.connect(audioCtx.destination);
+            if(name==='roll'){osc.type='triangle';osc.frequency.setValueAtTime(200,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.2);osc.start();osc.stop(audioCtx.currentTime+0.2);}
+            if(name==='win'){osc.type='sine';osc.frequency.setValueAtTime(400,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.5);osc.start();osc.stop(audioCtx.currentTime+0.5);}
+            if(name==='fail'){osc.type='sawtooth';osc.frequency.setValueAtTime(150,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.3);osc.start();osc.stop(audioCtx.currentTime+0.3);}
+        }
+        function vibe(p) { if(navigator.vibrate) navigator.vibrate(p); }
+        function log(msg) { document.getElementById('debug-log').innerText = msg; console.log(msg); }
+
+        // === 變數與題庫 ===
         const questions = [
             {q:"1.高分子的分子結構一般是？", o:["很小原子", "長鏈狀", "金屬排列", "氣體分子"], a:1},
             {q:"2.下列何者是「熱固性塑膠」？", o:["膠帶", "保麗龍", "酚醛樹脂", "寶特瓶"], a:2},
@@ -252,7 +285,7 @@
         ];
         const mapSize = 50; const cols = 10;
         let mapCells = [];
-        const APP_PREFIX = "poly-2025-"; // 防止撞ID的前綴
+        const APP_PREFIX = "poly-party-2025-"; 
 
         window.onload = function() { initMap(); renderBoard(); highlightTurn(); };
 
@@ -270,79 +303,101 @@
 
         // === 電腦端 (Host) ===
         function startTeacher() {
-            // 生成隨機 4 位數房間號
             const roomCode = Math.floor(1000 + Math.random() * 9000);
             const peerId = APP_PREFIX + roomCode;
 
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('teacher-ui').style.display = 'flex';
             document.getElementById('host-room-info').innerText = `房間號: ${roomCode} | 連線中...`;
-            
+            log("電腦端正在建立 Peer...");
+
             try {
                 peer = new Peer(peerId);
                 peer.on('open', (id) => {
+                    log(`房間已建立: ${roomCode}`);
                     document.getElementById('host-room-info').innerText = `房間號: ${roomCode} | 等待加入...`;
                 });
                 peer.on('error', e => {
-                    alert("連線 ID 錯誤或衝突，請重新整理網頁");
+                    log("Peer Error: " + e.type);
+                    alert("連線系統錯誤: " + e.type);
                 });
                 peer.on('connection', c => {
                     connections.push(c);
+                    log(`新連線! 當前人數: ${connections.length}`);
                     document.getElementById('host-room-info').innerText = `房間號: ${roomCode} | 人數: ${connections.length}`;
                     c.on('open', () => c.send({type:'STATE', turn:turn, state:state}));
                     c.on('data', d => {
                         if(d.team !== turn) return;
                         if(d.cmd === 'ROLL' && state === 'IDLE') rollDice();
-                        if(d.cmd === 'ANS' && state === 'QUIZ') checkAns(d.val); // 這裡修正調用 checkAns
+                        if(d.cmd === 'ANS' && state === 'QUIZ') checkAns(d.val);
                         if(d.cmd === 'TARGET' && state === 'SELECT_TARGET') executeAction(d.val);
-                    });
-                    c.on('close', () => {
-                         // 簡單移除斷線邏輯 (實作較複雜，先忽略)
-                         document.getElementById('host-room-info').innerText = `房間號: ${roomCode} | 人數: --`;
                     });
                 });
             } catch(e) { alert("瀏覽器不支援 WebRTC"); }
         }
 
-        // === 手機端 (Join) ===
+        // === 手機端 (Client) ===
         function startStudent() {
             const code = document.getElementById('room-input').value;
             if(!code || code.length !== 4) { alert("請輸入 4 位數房間號！"); return; }
             
             const hostId = APP_PREFIX + code;
             
+            // 顯示連線畫面
             document.getElementById('start-screen').style.display = 'none';
-            document.getElementById('conn-msg').style.display = 'block';
+            document.getElementById('conn-msg').style.display = 'flex';
+            document.getElementById('conn-detail').innerText = `正在尋找房間 ${code}...`;
+            log(`開始連線到 ${code}...`);
+
+            // 設定超時機制 (5秒沒連上就重置)
+            let connTimeout = setTimeout(() => {
+                alert("連線超時！\n1. 請確認房間號碼。\n2. 手機和電腦必須連同一個 Wi-Fi。\n3. 請確認防火牆未阻擋。");
+                location.reload();
+            }, 6000);
             
             try {
-                peer = new Peer(); // 手機端隨機ID即可
+                peer = new Peer(); 
                 peer.on('open', () => {
+                    log("本機 Peer ID 已建立，正在呼叫電腦...");
                     conn = peer.connect(hostId);
+                    
                     conn.on('open', () => {
+                        clearTimeout(connTimeout); // 清除超時倒數
+                        log("連線成功！進入遊戲介面");
                         document.getElementById('conn-msg').style.display = 'none';
                         document.getElementById('student-ui').style.display = 'flex';
                         vibe(200);
                     });
+                    
                     conn.on('data', d => updatePad(d));
-                    conn.on('error', () => {
-                        alert("找不到房間！請確認號碼與 Wi-Fi");
-                        location.reload();
+                    
+                    conn.on('error', (err) => {
+                        log("連線錯誤: " + err);
                     });
-                    // 5秒沒連上顯示提示
-                    setTimeout(()=>{
-                        if(!conn.open) {
-                             alert("連線超時，請確認電腦和手機連同一個 Wi-Fi");
-                             location.reload();
-                        }
-                    }, 5000);
                 });
-            } catch(e) { alert("連線失敗"); }
+
+                peer.on('error', (err) => {
+                    clearTimeout(connTimeout);
+                    log("Peer Error: " + err.type);
+                    if(err.type === 'peer-unavailable') {
+                        alert("找不到房間！請確認號碼是否正確，或電腦端是否開啟。");
+                    } else {
+                        alert("連線錯誤: " + err.type);
+                    }
+                    location.reload();
+                });
+
+            } catch(e) { 
+                alert("手機瀏覽器不支援連線功能: " + e);
+                location.reload();
+            }
         }
 
         function startOffline() {
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('teacher-ui').style.display = 'flex';
             document.getElementById('host-room-info').innerText = "單機模式";
+            log("進入單機模式");
             alert("單機模式啟動！請老師直接點擊畫面操作。");
         }
 
@@ -351,8 +406,17 @@
             myTeam = t;
             document.getElementById('team-select').style.display = 'none';
             document.getElementById('pad-screen').style.display = 'flex';
+            log(`已選擇隊伍: ${players[t].n}`);
         }
-        function sendCmd(cmd, val) { if(conn) conn.send({cmd, val, team:myTeam}); vibe(50); }
+        function sendCmd(cmd, val) { 
+            if(conn && conn.open) {
+                conn.send({cmd, val, team:myTeam}); 
+                vibe(50);
+            } else {
+                log("發送失敗：連線已斷開");
+                alert("與電腦斷線，請重新整理");
+            }
+        }
 
         function updatePad(data) {
             let isMyTurn = (data.turn === myTeam);
@@ -433,7 +497,7 @@
                     if(i!==turn) html += `<button class="btn" style="background:${p.c}; color:white; padding:15px;" onclick="executeAction(${i}, '${t}')">${p.n}</button>`;
                 });
                 html += `</div>`;
-                document.getElementById('modal-content').innerHTML = html; // 修正ID
+                document.getElementById('modal-content').innerHTML = html;
                 document.getElementById('modal').style.display='flex';
             }
             else nextTurn();
@@ -463,20 +527,17 @@
             currentQ = questions[Math.floor(Math.random()*questions.length)];
             let html = `<h2 style="color:#333">${currentQ.q}</h2><div style="text-align:left">`;
             currentQ.o.forEach((o, i) => {
-                // 注意：這裡直接調用 checkAns
                 html += `<div class="opt-row" onclick="checkAns(${i}, this)">${String.fromCharCode(65+i)}. ${o}</div>`;
             });
             html += `</div><button class="btn" style="background:#333; color:white; width:100%; padding:10px; margin-top:10px; display:none;" id="next-btn" onclick="closeModal()">下一位</button>`;
-            document.getElementById('modal-content').innerHTML = html; // 修正ID
+            document.getElementById('modal-content').innerHTML = html;
             document.getElementById('modal').style.display = 'flex';
         }
 
         function checkAns(ans, el) {
-            // 手機傳來答案時 el 是 undefined，我們需要手動抓 DOM 顯示給老師看
             let rows = document.querySelectorAll('.opt-row');
             let target = el || rows[ans];
-            
-            if(!target) return; // 避免錯誤
+            if(!target) return;
 
             if(ans === currentQ.a) {
                 target.classList.add('correct'); playSfx('win'); players[turn].s += 10;
