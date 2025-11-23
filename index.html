@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>高分子派對 (一鍵連線)</title>
+    <title>高分子派對 (修復版)</title>
     
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -38,17 +38,25 @@
         #start-screen {
             position: absolute; width: 100%; height: 100%; z-index: 100;
             background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
-            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 40px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
         }
         .logo {
             background: white; padding: 20px 40px; border-radius: 30px;
-            font-size: 3.5rem; color: var(--blue); box-shadow: 0 10px 20px rgba(0,0,0,0.2); transform: rotate(-3deg);
+            font-size: 3rem; color: var(--blue); box-shadow: 0 10px 20px rgba(0,0,0,0.2); transform: rotate(-3deg);
+            margin-bottom: 20px;
         }
         
-        /* 超大按鈕 */
+        /* 角色選擇與輸入框 */
         .role-btn {
-            width: 80%; max-width: 350px; padding: 30px; font-size: 2rem; color: white;
-            border-radius: 30px; box-shadow: 0 10px 0 rgba(0,0,0,0.2);
+            width: 80%; max-width: 300px; padding: 20px; font-size: 1.5rem; color: white;
+            border-radius: 20px; box-shadow: 0 8px 0 rgba(0,0,0,0.2);
+        }
+        .input-group {
+            display: flex; gap: 10px; width: 80%; max-width: 300px;
+        }
+        #room-input {
+            flex: 1; padding: 15px; border-radius: 15px; border: none; font-size: 1.2rem; text-align: center;
+            outline: none; box-shadow: 0 4px 0 rgba(0,0,0,0.1);
         }
 
         /* 2. 電腦端介面 */
@@ -58,7 +66,7 @@
             background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); padding: 0 10px;
         }
         .score-card {
-            background: white; padding: 8px 25px; border-radius: 50px; font-size: 1.5rem; 
+            background: white; padding: 8px 20px; border-radius: 50px; font-size: 1.2rem; 
             display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 0 #ddd; border: 3px solid transparent; transition: 0.3s;
         }
         .score-card.active { transform: scale(1.15) translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.15); border-color: currentColor;}
@@ -66,22 +74,22 @@
         .board-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 10px; position: relative; }
         .board {
             display: grid; grid-template-columns: repeat(10, 1fr); grid-template-rows: repeat(5, 1fr);
-            gap: 8px; width: 95%; height: 85%; max-width: 1400px;
+            gap: 5px; width: 95%; height: 85%; max-width: 1400px;
         }
 
         /* 格子 (盲盒) */
         .cell {
-            background: white; border-radius: 15px; display: flex; flex-direction: column; justify-content: center; align-items: center;
-            font-size: 1.5rem; font-weight: bold; color: #ddd; box-shadow: 0 4px 0 #cbd5e1; position: relative; border: 2px solid #ecf0f1;
+            background: white; border-radius: 10px; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-size: 1.2rem; font-weight: bold; color: #ddd; box-shadow: 0 4px 0 #cbd5e1; position: relative; border: 2px solid #ecf0f1;
         }
         .cell.Start { background: #FFD3B6; color: #ff6b6b; border: none;}
         .cell.Finish { background: #FFD93D; color: #d35400; border: 3px solid #ff9f43;}
         
         /* 棋子 (動物) */
         .token {
-            width: 50px; height: 50px; border-radius: 50%; position: absolute; z-index: 10;
+            width: 40px; height: 40px; border-radius: 50%; position: absolute; z-index: 10;
             background: white; border: 3px solid white; box-shadow: 0 5px 10px rgba(0,0,0,0.3);
-            display: flex; justify-content: center; align-items: center; font-size: 2rem;
+            display: flex; justify-content: center; align-items: center; font-size: 1.5rem;
             transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer;
         }
         .token:hover { transform: scale(1.2); }
@@ -96,14 +104,14 @@
         .big-action-btn { width: 250px; height: 250px; border-radius: 50%; font-size: 3rem; background: var(--yellow); color: #8a6d0b; box-shadow: 0 15px 0 #d4b106; }
         .big-action-btn:active { transform: translateY(15px); box-shadow: 0 0 0 #d4b106; }
         .ans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 400px; }
-        .ans-btn { height: 100px; font-size: 2rem; color: white; border-radius: 20px; }
+        .ans-btn { height: 80px; font-size: 1.5rem; color: white; border-radius: 20px; }
 
         /* 彈窗 */
         .modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 200; }
-        .modal-card { background: white; width: 90%; max-width: 650px; padding: 40px; border-radius: 30px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); animation: bounceIn 0.4s; max-height: 90vh; overflow-y: auto;}
+        .modal-card { background: white; width: 90%; max-width: 600px; padding: 30px; border-radius: 30px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); animation: bounceIn 0.4s; max-height: 90vh; overflow-y: auto;}
         @keyframes bounceIn { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
         
-        .opt-row { background: #f8f9fa; padding: 20px; margin: 10px 0; border-radius: 15px; text-align: left; font-size: 1.3rem; border: 3px solid transparent; cursor: pointer; transition: background 0.2s; }
+        .opt-row { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 15px; text-align: left; font-size: 1.2rem; border: 3px solid transparent; cursor: pointer; transition: background 0.2s; }
         .opt-row:hover { background: #e3f2fd; } 
         .opt-row.correct { background: #e8f5e9; border-color: var(--green); color: var(--green); font-weight: bold;}
         .opt-row.wrong { background: #ffebee; border-color: var(--red); color: var(--red); }
@@ -113,7 +121,7 @@
         .target-btn { padding: 20px; font-size: 1.2rem; color: white; border-radius: 15px; }
         
         /* 連線狀態 */
-        .conn-count { position: fixed; bottom: 10px; right: 10px; color: rgba(0,0,0,0.3); font-weight: bold;}
+        .room-info { position: fixed; bottom: 10px; right: 10px; background:white; padding:5px 15px; border-radius:20px; box-shadow:0 2px 10px rgba(0,0,0,0.1); font-weight: bold; color:var(--blue); z-index: 300;}
     </style>
 </head>
 <body>
@@ -135,15 +143,20 @@
         <div class="logo">🧪 高分子派對</div>
         
         <button class="btn role-btn" style="background:var(--blue);" onclick="startTeacher()">
-            💻 我是電腦 (Host)
+            💻 我是電腦 (建立房間)
         </button>
         
+        <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.5); width: 80%;"></div>
+
+        <div class="input-group">
+            <input type="number" id="room-input" placeholder="輸入房間號碼" pattern="\d*">
+        </div>
         <button class="btn role-btn" style="background:white; color:var(--blue);" onclick="startStudent()">
-            📱 我是手機 (Join)
+            📱 手機加入
         </button>
         
         <div id="conn-msg" style="color:white; margin-top:20px; display:none;">連線中...</div>
-        <button class="btn" style="background:#555; color:#aaa; margin-top:30px; padding:10px;" onclick="startOffline()">⚠️ 連不上？點我玩單機</button>
+        <button class="btn" style="background:rgba(0,0,0,0.2); color:white; font-size:0.8rem; margin-top:20px; padding:10px 20px;" onclick="startOffline()">⚠️ 連不上？點我玩單機</button>
     </div>
 
     <div id="teacher-ui">
@@ -154,7 +167,7 @@
             <div id="card-3" class="score-card" style="color:var(--yellow)"><span>🦁 第五組</span> <span id="s3">0</span></div>
         </div>
         <div class="board-container"><div class="board" id="board"></div></div>
-        <div class="conn-count" id="host-conn-count">連線人數: 0</div>
+        <div class="room-info" id="host-room-info">房間號: --- | 人數: 0</div>
     </div>
 
     <div id="student-ui">
@@ -192,11 +205,7 @@
     <div id="modal" class="modal-mask"><div class="modal-card"><div id="modal-content"></div></div></div>
 
     <script>
-        // === 🔥 隱形電波頻道 (固定 ID) ===
-        // 所有打開這個網頁的人，都會自動連到這個 ID
-        const SECRET_ID = "polymer-party-2025-secret-channel";
-
-        // 題庫
+        // === 題庫 ===
         const questions = [
             {q:"1.高分子的分子結構一般是？", o:["很小原子", "長鏈狀", "金屬排列", "氣體分子"], a:1},
             {q:"2.下列何者是「熱固性塑膠」？", o:["膠帶", "保麗龍", "酚醛樹脂", "寶特瓶"], a:2},
@@ -243,6 +252,7 @@
         ];
         const mapSize = 50; const cols = 10;
         let mapCells = [];
+        const APP_PREFIX = "poly-2025-"; // 防止撞ID的前綴
 
         window.onload = function() { initMap(); renderBoard(); highlightTurn(); };
 
@@ -260,45 +270,71 @@
 
         // === 電腦端 (Host) ===
         function startTeacher() {
+            // 生成隨機 4 位數房間號
+            const roomCode = Math.floor(1000 + Math.random() * 9000);
+            const peerId = APP_PREFIX + roomCode;
+
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('teacher-ui').style.display = 'flex';
+            document.getElementById('host-room-info').innerText = `房間號: ${roomCode} | 連線中...`;
             
             try {
-                peer = new Peer(SECRET_ID);
+                peer = new Peer(peerId);
+                peer.on('open', (id) => {
+                    document.getElementById('host-room-info').innerText = `房間號: ${roomCode} | 等待加入...`;
+                });
                 peer.on('error', e => {
-                    if(e.type === 'unavailable-id') alert("已有其他電腦開啟了，請關閉其他分頁！");
-                    else alert("連線失敗 (請改用單機模式)");
+                    alert("連線 ID 錯誤或衝突，請重新整理網頁");
                 });
                 peer.on('connection', c => {
                     connections.push(c);
-                    document.getElementById('host-conn-count').innerText = `連線: ${connections.length}`;
+                    document.getElementById('host-room-info').innerText = `房間號: ${roomCode} | 人數: ${connections.length}`;
                     c.on('open', () => c.send({type:'STATE', turn:turn, state:state}));
                     c.on('data', d => {
                         if(d.team !== turn) return;
                         if(d.cmd === 'ROLL' && state === 'IDLE') rollDice();
-                        if(d.cmd === 'ANS' && state === 'QUIZ') checkAnswer(d.val);
+                        if(d.cmd === 'ANS' && state === 'QUIZ') checkAns(d.val); // 這裡修正調用 checkAns
                         if(d.cmd === 'TARGET' && state === 'SELECT_TARGET') executeAction(d.val);
                     });
+                    c.on('close', () => {
+                         // 簡單移除斷線邏輯 (實作較複雜，先忽略)
+                         document.getElementById('host-room-info').innerText = `房間號: ${roomCode} | 人數: --`;
+                    });
                 });
-            } catch(e) { alert("瀏覽器不支援"); }
+            } catch(e) { alert("瀏覽器不支援 WebRTC"); }
         }
 
         // === 手機端 (Join) ===
         function startStudent() {
+            const code = document.getElementById('room-input').value;
+            if(!code || code.length !== 4) { alert("請輸入 4 位數房間號！"); return; }
+            
+            const hostId = APP_PREFIX + code;
+            
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('conn-msg').style.display = 'block';
             
             try {
-                peer = new Peer();
+                peer = new Peer(); // 手機端隨機ID即可
                 peer.on('open', () => {
-                    conn = peer.connect(SECRET_ID);
+                    conn = peer.connect(hostId);
                     conn.on('open', () => {
                         document.getElementById('conn-msg').style.display = 'none';
                         document.getElementById('student-ui').style.display = 'flex';
                         vibe(200);
                     });
                     conn.on('data', d => updatePad(d));
-                    conn.on('error', () => alert("找不到電腦端！請確認老師已經按下「我是電腦」"));
+                    conn.on('error', () => {
+                        alert("找不到房間！請確認號碼與 Wi-Fi");
+                        location.reload();
+                    });
+                    // 5秒沒連上顯示提示
+                    setTimeout(()=>{
+                        if(!conn.open) {
+                             alert("連線超時，請確認電腦和手機連同一個 Wi-Fi");
+                             location.reload();
+                        }
+                    }, 5000);
                 });
             } catch(e) { alert("連線失敗"); }
         }
@@ -306,6 +342,7 @@
         function startOffline() {
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('teacher-ui').style.display = 'flex';
+            document.getElementById('host-room-info').innerText = "單機模式";
             alert("單機模式啟動！請老師直接點擊畫面操作。");
         }
 
@@ -391,20 +428,18 @@
             else if(t==='Bad') showModal("厄運", "💣 扣 10 分！", true, ()=>{players[turn].s-=10; nextTurn();});
             else if(t==='Steal' || t==='Swap') {
                 state = 'SELECT_TARGET'; broadcast();
-                // 老師端也顯示選擇，以防手機沒電
                 let html = `<h1>請選擇目標</h1><p>看手機選，或老師代選：</p><div class="target-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">`;
                 players.forEach((p,i) => {
                     if(i!==turn) html += `<button class="btn" style="background:${p.c}; color:white; padding:15px;" onclick="executeAction(${i}, '${t}')">${p.n}</button>`;
                 });
                 html += `</div>`;
-                document.getElementById('m-content').innerHTML = html;
+                document.getElementById('modal-content').innerHTML = html; // 修正ID
                 document.getElementById('modal').style.display='flex';
             }
             else nextTurn();
         }
 
         function executeAction(tIdx, action) {
-            // 如果沒有 action 參數(手機傳來的)，判斷當前格子
             if(!action) {
                 let type = mapCells[players[turn].p];
                 action = type==='Steal'?'Steal':'Swap';
@@ -428,18 +463,21 @@
             currentQ = questions[Math.floor(Math.random()*questions.length)];
             let html = `<h2 style="color:#333">${currentQ.q}</h2><div style="text-align:left">`;
             currentQ.o.forEach((o, i) => {
-                html += `<div class="opt" onclick="checkAns(${i}, this)">${String.fromCharCode(65+i)}. ${o}</div>`;
+                // 注意：這裡直接調用 checkAns
+                html += `<div class="opt-row" onclick="checkAns(${i}, this)">${String.fromCharCode(65+i)}. ${o}</div>`;
             });
             html += `</div><button class="btn" style="background:#333; color:white; width:100%; padding:10px; margin-top:10px; display:none;" id="next-btn" onclick="closeModal()">下一位</button>`;
-            document.getElementById('m-content').innerHTML = html;
+            document.getElementById('modal-content').innerHTML = html; // 修正ID
             document.getElementById('modal').style.display = 'flex';
         }
 
         function checkAns(ans, el) {
-            // 老師代按時 el 存在，手機按時 el 不存在
-            let rows = document.querySelectorAll('.opt');
+            // 手機傳來答案時 el 是 undefined，我們需要手動抓 DOM 顯示給老師看
+            let rows = document.querySelectorAll('.opt-row');
             let target = el || rows[ans];
             
+            if(!target) return; // 避免錯誤
+
             if(ans === currentQ.a) {
                 target.classList.add('correct'); playSfx('win'); players[turn].s += 10;
             } else {
@@ -449,7 +487,7 @@
         }
 
         function showModal(t, m, btn, cb) {
-            document.getElementById('m-content').innerHTML = `<h1>${t}</h1><p>${m}</p>${btn?`<button class="btn" style="background:var(--blue); color:white; width:100%; padding:10px;" id="ok-btn">確定</button>`:''}`;
+            document.getElementById('modal-content').innerHTML = `<h1>${t}</h1><p>${m}</p>${btn?`<button class="btn" style="background:var(--blue); color:white; width:100%; padding:10px;" id="ok-btn">確定</button>`:''}`;
             document.getElementById('modal').style.display = 'flex';
             if(btn) document.getElementById('ok-btn').onclick = () => { closeModal(); cb(); };
         }
