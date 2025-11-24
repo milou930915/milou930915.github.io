@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>高分子派對 (全視角觀戰版)</title>
+    <title>高分子派對 (全同步觀戰版)</title>
     
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -35,7 +35,7 @@
         .btn:active { transform: translateY(6px); box-shadow: 0 0 0 rgba(0,0,0,0.4); }
         .btn:disabled { background-color: #95a5a6 !important; color: #bdc3c7 !important; transform: none !important; box-shadow: none !important; cursor: not-allowed; }
 
-        /* 起始頁 */
+        /* 1. 起始頁 */
         #start-screen {
             position: absolute; width: 100%; height: 100%; z-index: 100;
             background: linear-gradient(135deg, #2c3e50 0%, #4ca1af 100%);
@@ -50,7 +50,7 @@
         .input-group { display: flex; gap: 10px; width: 80%; max-width: 300px; }
         #room-input { flex: 1; padding: 15px; border-radius: 15px; border: none; font-size: 1.5rem; text-align: center; outline: none; box-shadow: 0 4px 0 rgba(0,0,0,0.1); font-weight: bold; color: #333; }
 
-        /* 2. 電腦端 & 旁觀者介面 */
+        /* 2. 電腦端 & 旁觀者共用介面 */
         #teacher-ui { display: none; width: 100%; height: 100%; flex-direction: column; position: relative; }
         
         .turn-order-bar {
@@ -74,15 +74,13 @@
         }
         .score-card.active { transform: scale(1.1) translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.3); border-color: currentColor; opacity: 1; font-weight: bold; background: white; color: #2c3e50 !important; }
 
-        .board-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 10px; position: relative; overflow: auto; }
+        .board-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 10px; position: relative; overflow: hidden; }
         .board {
             display: grid; grid-template-columns: repeat(10, 1fr); grid-template-rows: repeat(5, 1fr);
-            gap: 6px; width: 95%; height: 85%; max-width: 1400px; transition: transform 0.3s;
+            gap: 6px; width: 95%; height: 85%; max-width: 1400px; transition: transform 0.3s; transform-origin: center center;
         }
 
-        /* 旁觀者模式下的縮放 */
-        .spectator-mode .board { transform-origin: center center; }
-
+        /* 格子 & 棋子 */
         .cell {
             background: white; border-radius: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center;
             font-size: 1.5rem; font-weight: bold; color: #bdc3c7; box-shadow: 0 4px 0 #95a5a6; position: relative; 
@@ -100,7 +98,7 @@
         .token.active-token { opacity: 1; filter: grayscale(0); transform: scale(1.3); animation: jump 1s infinite alternate; z-index: 20; box-shadow: 0 0 25px rgba(255,255,255,0.8); border-color: #f1c40f; }
         @keyframes jump { from{transform: translateY(0) scale(1.3);} to{transform: translateY(-15px) scale(1.3);} }
 
-        /* 3. 手機控制端 */
+        /* 3. 手機控制端 (玩家) */
         #student-ui { display: none; width: 100%; height: 100%; flex-direction: column; background: #ecf0f1; color: #333;}
         .mobile-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
         .team-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; }
@@ -118,7 +116,6 @@
         @keyframes bounceIn { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
         
         .opt-row { background: #ecf0f1; padding: 20px; margin: 15px 0; border-radius: 15px; text-align: left; font-size: 1.4rem; border: 3px solid transparent; cursor: pointer; transition: background 0.2s; font-weight: bold; color: #2c3e50;}
-        .opt-row:hover { background: #bdc3c7; } 
         .opt-row.correct { background: #2ecc71; border-color: #27ae60; color: white;}
         .opt-row.wrong { background: #e74c3c; border-color: #c0392b; color: white;}
         
@@ -140,6 +137,11 @@
         .turn-banner.show { opacity: 1; transform: scale(1.2); }
         #conn-msg { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; flex-direction: column; align-items: center; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); color:#333;}
         #conn-status-text { margin-top: 10px; font-size: 1rem; color: #666; }
+
+        /* ★★★ 旁觀者模式特殊 CSS ★★★ */
+        .spectator-mode #next-btn { display: none !important; } /* 隱藏下一步 */
+        .spectator-mode .modal-card button { display: none !important; } /* 隱藏彈窗按鈕 */
+        .spectator-mode .tab-container button { display: block !important; } /* 但保留排行榜切換 */
     </style>
 </head>
 <body>
@@ -153,11 +155,7 @@
         <button class="btn" style="background:rgba(255,255,255,0.1); color:#bdc3c7; font-size:0.9rem; margin-top:20px; padding:10px 20px;" onclick="startOffline()">⚠️ 單機版</button>
     </div>
 
-    <div id="conn-msg">
-        <div style="font-size:3rem">🔄</div>
-        <h3>連線中...</h3>
-        <div id="conn-status-text">初始化...</div>
-    </div>
+    <div id="conn-msg"><div style="font-size:3rem">🔄</div><h3>連線中...</h3><div id="conn-status-text">初始化...</div></div>
 
     <div id="teacher-ui">
         <div class="turn-order-bar">
@@ -199,7 +197,6 @@
         <div id="pad-screen" class="mobile-center" style="display:none;">
             <div id="pad-msg" class="pad-msg">等待中...</div>
             <div id="pad-dice" style="display:none;"><button class="btn big-action-btn" onclick="sendCmd('ROLL')">🎲</button></div>
-            
             <div id="pad-wager" style="display:none; width:100%; flex-direction:column; align-items:center;">
                 <h2 style="margin-bottom:20px;">🎲 下注時刻</h2>
                 <div class="pad-msg" id="wager-info" style="font-size:1.2rem; color:#555; margin-bottom:10px;">本題價值: ?? 分</div>
@@ -208,7 +205,6 @@
                     <button class="btn" id="btn-wager-rand" style="background:var(--yellow); color:black; padding:20px; font-size:1.2rem;" onclick="sendCmd('WAGER', 'R')">🎰 隨機 (x2~x5)</button>
                 </div>
             </div>
-
             <div id="pad-quiz" style="display:none; width:100%; justify-content:center;">
                 <div class="ans-grid">
                     <button class="btn ans-btn" style="background:var(--red)" onclick="sendCmd('ANS',0)">A</button>
@@ -227,7 +223,7 @@
     <div id="modal" class="modal-mask"><div class="modal-card"><div id="modal-content"></div></div></div>
 
     <script>
-        const APP_PREFIX = "poly-party-2025-spect-v1-"; 
+        const APP_PREFIX = "poly-party-2025-spect-v2-"; 
         const peerConfig = { 
             config: { 
                 iceServers: [{ urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:stun2.l.google.com:19302' }],
@@ -327,14 +323,14 @@
                 peer.on('connection', c => {
                     connections.push(c);
                     document.getElementById('lobby-status').innerText = `目前連線: ${connections.length}`;
-                    // Host 廣播地圖和玩家狀態
                     setTimeout(() => { 
                         if(c.open) {
-                            c.send({type: 'MAP_SYNC', map: mapCells}); // 同步地圖
-                            c.send({type:'STATE', turn:turn, state:state, baseScore:currentBaseScore, players: players}); // 同步玩家與分數
+                            c.send({type: 'MAP_SYNC', map: mapCells}); 
+                            c.send({type:'STATE', turn:turn, state:state, baseScore:currentBaseScore, players: players}); 
                         } 
                     }, 500);
                     c.on('data', d => {
+                        if(d.team === -1) return;
                         if(d.team !== turn || isSwitchingTurn) return;
                         if(d.cmd === 'ROLL' && state === 'IDLE') rollDice();
                         if(d.cmd === 'WAGER' && state === 'WAGER') setWager(d.val);
@@ -355,7 +351,7 @@
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('conn-msg').style.display = 'flex';
             const statusText = document.getElementById('conn-status-text');
-            statusText.innerText = "建立連線...";
+            statusText.innerText = "建立 ID 中...";
 
             try {
                 peer = new Peer(peerConfig); 
@@ -364,12 +360,10 @@
                     conn = peer.connect(hostId, {reliable: true, serialization: 'json'}); 
                     conn.on('open', () => {
                         document.getElementById('conn-msg').style.display = 'none';
-                        // 如果是旁觀者，直接顯示 teacher-ui
                         if (isSpectator) {
                             document.getElementById('teacher-ui').style.display = 'flex';
-                            document.getElementById('host-lobby').style.display = 'none'; // 隱藏大廳
+                            document.getElementById('host-lobby').style.display = 'none'; 
                             document.body.classList.add('spectator-mode');
-                            // 縮放適配
                             let scale = Math.min(window.innerWidth / 1400, 1);
                             document.querySelector('.board').style.transform = `scale(${scale})`;
                         } else {
@@ -380,21 +374,18 @@
                         if(d.type === 'GAME_OVER') { showGameOverModal(d.winner, d.sRank, d.dRank); return; }
                         if(d.type === 'MAP_SYNC') { mapCells = d.map; renderBoard(); return; }
                         if(d.type === 'SHOW_MODAL') { 
-                            // 旁觀者顯示 Modal (無按鈕)
                             if(isSpectator) showModal(d.title, d.content, false); 
                             return;
                         }
                         if(d.type === 'CLOSE_MODAL') { closeModal(); return; }
 
-                        // 一般狀態更新
                         turn = d.turn; 
-                        players = d.players || players; // 更新分數與位置
+                        players = d.players || players; 
                         lastReceivedState = d; 
                         
                         if(isSpectator) {
                             updateHUD();
                             highlightTurn();
-                            // 更新棋子位置
                             players.forEach((p,i) => updateTokenPos(i, p.p));
                         } else {
                             updatePad(d); 
@@ -421,21 +412,36 @@
             if(lastReceivedState) updatePad(lastReceivedState);
         }
 
-        // ★★★ 旁觀者模式 ★★★
         function joinSpectator() {
+            myTeam = -1;
             isSpectator = true;
-            startStudent(); // 走連線流程
+            initAudio();
+            startStudent();
         }
 
-        function sendCmd(cmd, val, action) { if(conn && conn.open) { conn.send({cmd, val, action, team:myTeam}); vibe(50); } }
+        function sendCmd(cmd, val, action) { 
+            if(isSpectator) return; 
+            if(conn && conn.open) { conn.send({cmd, val, action, team:myTeam}); vibe(50); } 
+        }
 
         function updatePad(data) {
-            let isMyTurn = (data.turn === myTeam);
             let status = document.getElementById('pad-msg');
             document.getElementById('pad-dice').style.display = 'none';
             document.getElementById('pad-quiz').style.display = 'none';
             document.getElementById('pad-target').style.display = 'none';
             document.getElementById('pad-wager').style.display = 'none';
+            
+            if (isSpectator) {
+                status.style.color = players[data.turn].c;
+                if (data.state === 'IDLE') status.innerText = `等待 ${players[data.turn].n} 擲骰...`;
+                else if (data.state === 'MOVING') status.innerText = `${players[data.turn].n} 移動中...`;
+                else if (data.state === 'WAGER') status.innerText = `${players[data.turn].n} 正在下注...`;
+                else if (data.state === 'QUIZ') status.innerText = `${players[data.turn].n} 正在答題...`;
+                else if (data.state === 'SELECT_TARGET') status.innerText = `${players[data.turn].n} 正在使壞...`;
+                return;
+            }
+
+            let isMyTurn = (data.turn === myTeam);
             
             if(isMyTurn) {
                 status.style.color = players[myTeam].c;
@@ -497,7 +503,6 @@
                 token = document.createElement('div'); token.className = 'token'; 
                 token.innerText = ["🐯","🐳","🐸","🦁"][pid]; 
                 token.style.color=p.c; token.style.borderColor=p.c; token.id=`t-${pid}`;
-                // 只有 Host 或 單機模式可以點擊
                 if(!isSpectator) {
                     token.onclick = () => { if(state==='IDLE' && turn===pid && !isSwitchingTurn && confirm(`幫 ${p.n} 擲骰子？`)) rollDice(); };
                 }
@@ -541,6 +546,10 @@
             try { connections.forEach(c => { if(c.open) c.send(payload); }); } catch(e) {}
         }
 
+        function safeBroadcastToSpectators(type, data) {
+            try { connections.forEach(c => { if(c.open) c.send({type: type, ...data}); }); } catch(e) {}
+        }
+
         function checkEvent(pos) {
             let t = mapCells[pos];
             pendingEvent = type = (t === 'Q' ? null : t); 
@@ -549,7 +558,7 @@
 
         function finishQuiz(btn) {
             if(btn) btn.disabled = true;
-            closeModal(); // Close locally
+            closeModal(); 
             if(pendingEvent) {
                 setTimeout(() => { revealSurprise(pendingEvent); }, 500);
             } else {
@@ -570,16 +579,8 @@
                 let title = type === 'Steal' ? "😈 觸發搶奪事件！" : "🔄 觸發靈魂交換！";
                 let desc = type === 'Steal' ? "請選擇一個倒霉鬼，隨機搶走他的分數 (10%~100%)：" : "請選擇一個對象交換分數：";
                 
-                let html = `<h1>${title}</h1><p>${desc}</p><div class="target-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">`;
-                players.forEach((p,i) => {
-                    if(i!==turn) html += `<button class="btn" style="background:${p.c}; color:white; padding:15px;" onclick="executeSpecial(${i}, null)">${p.n}</button>`;
-                });
-                html += `</div>`;
-                // Host modal
-                document.getElementById('modal-content').innerHTML = html;
-                document.getElementById('modal').style.display = 'flex';
-                // Broadcast modal to spectators
-                safeBroadcastToSpectators('SHOW_MODAL', {title, content: desc});
+                // ★★★ Host 廣播彈窗給 Spectator ★★★
+                showModal(title, desc, false); 
             }
             else nextTurn();
         }
@@ -594,14 +595,13 @@
                 let stolen = Math.floor(players[targetIdx].s * (percent/100)); 
                 if(players[targetIdx].s <= 0) stolen = 0;
                 players[targetIdx].s -= stolen; players[turn].s += stolen;
-                alert(`😈 搶奪成功 (${percent}%)！\n從 ${players[targetIdx].n} 搶走了 ${stolen} 分！`);
+                showModal("😈 搶奪成功", `從 ${players[targetIdx].n} 搶走了 ${stolen} 分！`, true, nextTurn);
             } else if (action === 'swap') {
                 let temp = players[turn].s;
                 players[turn].s = players[targetIdx].s;
                 players[targetIdx].s = temp;
-                alert(`🔄 交換成功！\n你現在的分數是 ${players[turn].s} 分！`);
+                showModal("🔄 交換成功", `你現在的分數是 ${players[turn].s} 分！`, true, nextTurn);
             }
-            nextTurn();
         }
 
         function openWager() {
@@ -610,16 +610,16 @@
             currentMultiplier = 1;
             safeBroadcast();
 
-            let html = `<h1>🎲 機會命運</h1>
-            <p>本題價值 <b style="color:var(--blue); font-size:2rem;">${currentBaseScore} 分</b></p>
-            <p>你要下多少注？</p>
+            let html = `<h1>🎲 機會命運</h1><p>本題價值 <b style="color:var(--blue); font-size:2rem;">${currentBaseScore} 分</b></p><p>你要下多少注？</p>
             <div class="wager-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                 <button class="btn" style="background:var(--blue); color:white; padding:20px;" onclick="setWager(1, this)">🛡️ 一般</button>
                 <button class="btn" style="background:var(--yellow); color:black; padding:20px;" onclick="setWager('R', this)">🎰 隨機翻倍 (x2~x5)</button>
             </div>`;
+            // Host modal
             document.getElementById('modal-content').innerHTML = html;
             document.getElementById('modal').style.display = 'flex';
-            safeBroadcastToSpectators('SHOW_MODAL', {title: '下注時刻', content: '正在等待下注...'});
+            // Broadcast to spectator
+            safeBroadcastToSpectators('SHOW_MODAL', {title: '🎲 機會命運', content: `本題價值 ${currentBaseScore} 分，等待下注...`});
         }
 
         function setWager(m, btn) {
@@ -643,9 +643,15 @@
                 html += `<div class="opt-row" onclick="checkAns(${i}, this)">${String.fromCharCode(65+i)}. ${o}</div>`;
             });
             html += `</div><button id="next-btn" onclick="finishQuiz(this)">下一位 (老師請按我)</button>`;
+            
+            // Host
             document.getElementById('modal-content').innerHTML = html;
             document.getElementById('modal').style.display = 'flex';
-            safeBroadcastToSpectators('SHOW_MODAL', {title: '問答時間', content: currentQ.q});
+            
+            // ★★★ 關鍵：把題目內容廣播給旁觀者 ★★★
+            let spectatorHtml = `<h2 style="color:#333">${currentQ.q}</h2><div style="text-align:left">` + 
+                currentQ.o.map((o,i)=>`<div class="opt-row" style="cursor:default">${String.fromCharCode(65+i)}. ${o}</div>`).join('') + `</div>`;
+            safeBroadcastToSpectators('SHOW_MODAL', {title: `問答時間 (價值 ${pts}分)`, content: spectatorHtml});
         }
 
         function checkAns(ans, el) {
@@ -668,7 +674,7 @@
             document.getElementById('modal-content').innerHTML = html;
             document.getElementById('modal').style.display = 'flex';
             
-            // Broadcast modal content to spectators
+            // Broadcast to spectators if not already done
             if(!isSpectator) safeBroadcastToSpectators('SHOW_MODAL', {title: t, content: m});
 
             if(btn) document.getElementById('ok-btn').onclick = function() { 
