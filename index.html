@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>高分子派對 (雙榜結算版)</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>高分子派對 (iOS修復版)</title>
     
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -25,12 +26,14 @@
             background-image: radial-gradient(#34495e 15%, transparent 16%), radial-gradient(#34495e 15%, transparent 16%);
             background-size: 60px 60px; background-position: 0 0, 30px 30px;
             color: var(--text-color); overflow: hidden; height: 100vh; display: flex; flex-direction: column;
+            -webkit-touch-callout: none; user-select: none; /* iOS 防選取 */
         }
 
         .btn {
             border: none; outline: none; cursor: pointer; font-family: 'Varela Round', sans-serif; font-weight: bold;
             border-radius: 20px; transition: all 0.1s; box-shadow: 0 6px 0 rgba(0,0,0,0.4);
             text-transform: uppercase; display: flex; align-items: center; justify-content: center; user-select: none;
+            -webkit-tap-highlight-color: transparent; /* iOS 點擊高亮去除 */
         }
         .btn:active { transform: translateY(6px); box-shadow: 0 0 0 rgba(0,0,0,0.4); }
         .btn:disabled { background-color: #95a5a6 !important; color: #bdc3c7 !important; transform: none !important; box-shadow: none !important; cursor: not-allowed; }
@@ -91,7 +94,7 @@
             gap: 6px; width: 95%; height: 85%; max-width: 1400px;
         }
 
-        /* 格子樣式 (盲盒) */
+        /* 格子樣式 */
         .cell {
             background: white; border-radius: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center;
             font-size: 1.5rem; font-weight: bold; color: #bdc3c7; box-shadow: 0 4px 0 #95a5a6; position: relative; 
@@ -132,7 +135,7 @@
         .opt-row.correct { background: #2ecc71; border-color: #27ae60; color: white;}
         .opt-row.wrong { background: #e74c3c; border-color: #c0392b; color: white;}
         
-        /* 排行榜樣式 */
+        /* 排行榜 */
         .rank-table { width: 100%; margin-top: 10px; border-collapse: collapse; }
         .rank-row { border-bottom: 1px solid #eee; font-size: 1.4rem; }
         .rank-row td { padding: 15px 10px; text-align: left; }
@@ -237,7 +240,8 @@
     <div id="modal" class="modal-mask"><div class="modal-card"><div id="modal-content"></div></div></div>
 
     <script>
-        const APP_PREFIX = "poly-party-2025-final-v2-"; 
+        // === 設定 ===
+        const APP_PREFIX = "poly-party-2025-ios-v1-"; 
         const peerConfig = { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } };
         
         const allQuestions = [
@@ -292,6 +296,7 @@
         let audioCtx; 
         let isSwitchingTurn = false; 
 
+        // === 初始化 ===
         window.onload = function() { 
             try { shuffleQuestions(); initMap(); renderBoard(); } catch(e) {}
         };
@@ -308,12 +313,12 @@
 
         function initMap() {
             let types = [];
-            for(let i=0; i<20; i++) types.push("Q");       
-            for(let i=0; i<8; i++) types.push("Steal");    
-            for(let i=0; i<6; i++) types.push("Swap");     
-            for(let i=0; i<6; i++) types.push("Gift");     
-            for(let i=0; i<5; i++) types.push("Return");   
-            for(let i=0; i<5; i++) types.push("Bankrupt"); 
+            for(let i=0; i<18; i++) types.push("Q");
+            for(let i=0; i<8; i++) types.push("Steal"); 
+            for(let i=0; i<6; i++) types.push("Swap");
+            for(let i=0; i<6; i++) types.push("Gift");
+            for(let i=0; i<5; i++) types.push("Return");
+            for(let i=0; i<5; i++) types.push("Bankrupt");
             for (let i = types.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [types[i], types[j]] = [types[j], types[i]]; }
             mapCells = new Array(mapSize); mapCells[0] = "Start"; mapCells[mapSize-1] = "Finish";
             for(let i=1; i<mapSize-1; i++) { mapCells[i] = types[i-1] || "Q"; }
@@ -345,6 +350,7 @@
 
         function closeLobby() { document.getElementById('host-lobby').style.display = 'none'; highlightTurn(); safeBroadcast(); }
 
+        // === Client ===
         function startStudent() {
             initAudio();
             const code = document.getElementById('room-input').value;
@@ -355,7 +361,7 @@
             try {
                 peer = new Peer(peerConfig); 
                 peer.on('open', () => {
-                    conn = peer.connect(hostId, {reliable: true});
+                    conn = peer.connect(hostId, {reliable: true, serialization: 'json'}); // iOS fix
                     conn.on('open', () => {
                         document.getElementById('conn-msg').style.display = 'none';
                         document.getElementById('student-ui').style.display = 'flex';
@@ -382,6 +388,7 @@
 
         function joinGame(t) {
             myTeam = t;
+            initAudio(); // iOS audio hack
             document.getElementById('team-select').style.display = 'none';
             document.getElementById('pad-screen').style.display = 'flex';
             if(lastReceivedState) updatePad(lastReceivedState);
@@ -476,10 +483,8 @@
 
         function rollDice() {
             if(isSwitchingTurn) return; 
-            // 顯示擲骰動畫
             let steps = Math.floor(Math.random()*6)+1;
             showModal("🎲", `<div style="font-size:5rem; color:var(--blue)">${steps}</div><p>步</p>`, false);
-            
             setTimeout(() => {
                 closeModal();
                 state = 'MOVING'; safeBroadcast(); playSfx('roll');
@@ -628,58 +633,28 @@
         }
         function closeModal() { document.getElementById('modal').style.display = 'none'; }
 
-        // ★★★ 雙榜單邏輯 ★★★
         function victory(n) {
             confetti();
-            // 計算雙榜
             let scoreList = [...players].map(p=>({...p})).sort((a,b) => b.s - a.s);
             let distList = [...players].map(p=>({...p})).sort((a,b) => b.p - a.p);
-
-            // 廣播給手機
-            try {
-                connections.forEach(c => {
-                    if(c.open) c.send({type: 'GAME_OVER', winner: n, sRank: scoreList, dRank: distList});
-                });
-            } catch(e){}
-
+            try { connections.forEach(c => { if(c.open) c.send({type: 'GAME_OVER', winner: n, sRank: scoreList, dRank: distList}); }); } catch(e){}
             showGameOverModal(n, scoreList, distList);
         }
 
         function showGameOverModal(winner, sRank, dRank) {
             let medals = ["🥇", "🥈", "🥉", "4️⃣"];
-            
-            let sHtml = sRank.map((p,i)=>
-                `<tr class="rank-row"><td class="rank-icon">${medals[i]}</td><td>${p.n}</td><td class="rank-score">${p.s} 分</td></tr>`
-            ).join('');
-            
-            let dHtml = dRank.map((p,i)=>
-                `<tr class="rank-row"><td class="rank-icon">${medals[i]}</td><td>${p.n}</td><td class="rank-dist">${Math.floor(p.p/mapSize*100)}%</td></tr>`
-            ).join('');
+            let sHtml = sRank.map((p,i)=>`<tr class="rank-row"><td class="rank-icon">${medals[i]}</td><td>${p.n}</td><td class="rank-score">${p.s} 分</td></tr>`).join('');
+            let dHtml = dRank.map((p,i)=>`<tr class="rank-row"><td class="rank-icon">${medals[i]}</td><td>${p.n}</td><td class="rank-dist">${Math.floor(p.p/mapSize*100)}%</td></tr>`).join('');
 
-            let html = `
-                <h1>🏆 遊戲結束！</h1>
-                <h2 style="color:var(--red)">恭喜 ${winner} 抵達終點！</h2>
-                
-                <div class="tab-container">
-                    <button class="tab-btn active" onclick="switchTab('score')">💰 財富榜</button>
-                    <button class="tab-btn" onclick="switchTab('dist')">🏃 飛毛腿榜</button>
-                </div>
-
-                <div id="tab-score">
-                    <table class="rank-table">${sHtml}</table>
-                </div>
-                <div id="tab-dist" style="display:none">
-                    <table class="rank-table">${dHtml}</table>
-                </div>
-                
-                <button class="btn" style="margin-top:20px; background:#333; color:white;" onclick="location.reload()">🔄 再玩一次</button>
-            `;
+            let html = `<h1>🏆 遊戲結束！</h1><h2 style="color:var(--red)">恭喜 ${winner} 抵達終點！</h2>
+                <div class="tab-container"><button class="tab-btn active" onclick="switchTab('score')">💰 財富榜</button><button class="tab-btn" onclick="switchTab('dist')">🏃 飛毛腿榜</button></div>
+                <div id="tab-score"><table class="rank-table">${sHtml}</table></div><div id="tab-dist" style="display:none"><table class="rank-table">${dHtml}</table></div>
+                <button class="btn" style="margin-top:20px; background:#333; color:white;" onclick="location.reload()">🔄 再玩一次</button>`;
             
             document.getElementById('modal-content').innerHTML = html;
             document.getElementById('modal').style.display = 'flex';
         }
 
-        // 切換排行榜籤頁
         window.switchTab = function(tab) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             if(tab === 'score') {
