@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>高分子派對 (絕對同步版)</title>
+    <title>高分子派對 (綜藝特效版)</title>
     
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -140,9 +140,12 @@
         #next-btn:active { transform: translateY(8px); box-shadow: none; }
         @keyframes pulseBtn { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
 
+        /* 排行榜樣式 */
+        .rank-row { display: flex; justify-content: space-between; padding: 15px; border-bottom: 1px solid #eee; font-size: 1.5rem; }
+        .rank-row b { color: var(--blue); }
+
         .turn-banner { position: absolute; top: 20%; width: 100%; text-align: center; font-size: 4rem; font-weight: 900; text-shadow: 0 5px 20px rgba(0,0,0,0.5); z-index: 15; color: white; pointer-events: none; opacity: 0; transition: 0.3s; transform: scale(0.8); }
         .turn-banner.show { opacity: 1; transform: scale(1.2); }
-        
         #conn-msg { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; flex-direction: column; align-items: center; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); color:#333;}
     </style>
 </head>
@@ -226,8 +229,7 @@
     <div id="modal" class="modal-mask"><div class="modal-card"><div id="modal-content"></div></div></div>
 
     <script>
-        // === 設定 ===
-        const APP_PREFIX = "poly-party-2025-sync-v2-"; 
+        const APP_PREFIX = "poly-party-2025-sync-v4-"; 
         const peerConfig = { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } };
         
         const allQuestions = [
@@ -280,54 +282,35 @@
         let mapCells = [];
         let lastReceivedState = {turn: 0, state: 'IDLE'};
         let audioCtx; 
-        let isSwitchingTurn = false; // 防跳鎖
+        let isSwitchingTurn = false; 
 
-        // === 初始化 ===
         window.onload = function() { 
             try { shuffleQuestions(); initMap(); renderBoard(); } catch(e) {}
         };
 
-        function initAudio() {
-            try { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if(audioCtx.state === 'suspended') audioCtx.resume(); } catch(e) {}
-        }
-
-        function playSfx(name) {
-            try {
-                if(!audioCtx) initAudio(); if(!audioCtx) return;
-                const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
-                osc.connect(g); g.connect(audioCtx.destination);
-                if(name==='roll'){osc.type='triangle';osc.frequency.setValueAtTime(200,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.2);osc.start();osc.stop(audioCtx.currentTime+0.2);}
-                if(name==='win'){osc.type='sine';osc.frequency.setValueAtTime(400,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.5);osc.start();osc.stop(audioCtx.currentTime+0.5);}
-                if(name==='fail'){osc.type='sawtooth';osc.frequency.setValueAtTime(100,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.4);osc.start();osc.stop(audioCtx.currentTime+0.4);}
-            } catch(e) {}
-        }
+        function initAudio() { try { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if(audioCtx.state === 'suspended') audioCtx.resume(); } catch(e) {} }
+        function playSfx(name) { try { if(!audioCtx) initAudio(); if(!audioCtx) return; const osc = audioCtx.createOscillator(); const g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); if(name==='roll'){osc.type='triangle';osc.frequency.setValueAtTime(200,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.2);osc.start();osc.stop(audioCtx.currentTime+0.2);} if(name==='win'){osc.type='sine';osc.frequency.setValueAtTime(400,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.5);osc.start();osc.stop(audioCtx.currentTime+0.5);} if(name==='fail'){osc.type='sawtooth';osc.frequency.setValueAtTime(100,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.4);osc.start();osc.stop(audioCtx.currentTime+0.4);} } catch(e) {} }
         function vibe(p) { if(navigator.vibrate) navigator.vibrate(p); }
 
         function shuffleQuestions() {
             questionPool = [...allQuestions];
-            for (let i = questionPool.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [questionPool[i], questionPool[j]] = [questionPool[j], questionPool[i]];
-            }
+            for (let i = questionPool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [questionPool[i], questionPool[j]] = [questionPool[j], questionPool[i]]; }
         }
         function getNextQuestion() { if(questionPool.length === 0) shuffleQuestions(); return questionPool.pop(); }
 
         function initMap() {
             let types = [];
-            // ★★★ 極度混亂配置 (40%題目 60%功能) ★★★
-            for(let i=0; i<20; i++) types.push("Q");       
-            for(let i=0; i<8; i++) types.push("Steal");    // 搶奪
-            for(let i=0; i<6; i++) types.push("Swap");     // 交換
-            for(let i=0; i<6; i++) types.push("Gift");     // 送分
-            for(let i=0; i<5; i++) types.push("Return");   // 回原點
-            for(let i=0; i<5; i++) types.push("Bankrupt"); // 破產
-            
+            for(let i=0; i<18; i++) types.push("Q");
+            for(let i=0; i<8; i++) types.push("Steal"); 
+            for(let i=0; i<6; i++) types.push("Swap");
+            for(let i=0; i<6; i++) types.push("Gift");
+            for(let i=0; i<5; i++) types.push("Return");
+            for(let i=0; i<5; i++) types.push("Bankrupt");
             for (let i = types.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [types[i], types[j]] = [types[j], types[i]]; }
             mapCells = new Array(mapSize); mapCells[0] = "Start"; mapCells[mapSize-1] = "Finish";
             for(let i=1; i<mapSize-1; i++) { mapCells[i] = types[i-1] || "Q"; }
         }
 
-        // === Host ===
         function startTeacher() {
             initAudio();
             const roomCode = Math.floor(1000 + Math.random() * 9000);
@@ -354,7 +337,6 @@
 
         function closeLobby() { document.getElementById('host-lobby').style.display = 'none'; highlightTurn(); safeBroadcast(); }
 
-        // === Client ===
         function startStudent() {
             initAudio();
             const code = document.getElementById('room-input').value;
@@ -371,7 +353,6 @@
                         document.getElementById('student-ui').style.display = 'flex';
                     });
                     conn.on('data', d => { 
-                        // ★★★ 絕對同步：強制覆寫本地狀態 ★★★
                         turn = d.turn; 
                         lastReceivedState = d; 
                         updatePad(d); 
@@ -418,7 +399,6 @@
                     status.innerText = "👉 請作答！"; document.getElementById('pad-quiz').style.display = 'flex';
                 } else if (data.state === 'SELECT_TARGET') {
                     document.getElementById('pad-target').style.display = 'flex';
-                    // ★★★ 關鍵修正：使用電腦端傳來的列表，而非自己計算 ★★★
                     renderMobileTargets(data.targets || []); 
                 } else status.innerText = "看大螢幕...";
             } else {
@@ -426,7 +406,6 @@
             }
         }
         
-        // ★★★ 使用 Host 傳來的 targets 列表渲染按鈕 ★★★
         function renderMobileTargets(targetIndices) {
              let grid = document.getElementById('mobile-target-grid');
              grid.innerHTML = '';
@@ -437,8 +416,6 @@
                  btn.style.background = p.c;
                  btn.style.color = 'white';
                  btn.innerText = `選 ${p.n}`;
-                 // 這裡不需要判斷是steal還是swap，因為action參數會由UI狀態決定，
-                 // 或者為了保險，我們統一傳送 null，讓Host根據自己當前的 mapCells[player.p] 判斷
                  btn.onclick = () => sendCmd('TARGET', idx, null);
                  grid.appendChild(btn);
              });
@@ -451,10 +428,8 @@
                 let d = document.createElement('div'); d.className = `cell ${mapCells[i]}`;
                 if(mapCells[i]==='Start') d.innerText = "🚀";
                 else if(mapCells[i]==='Finish') d.innerText = "🏆";
-                else d.className = "cell Mystery"; // 盲盒偽裝
-                
+                else d.className = "cell Mystery"; // 盲盒
                 if(mapCells[i]!=='Start' && mapCells[i]!=='Finish') d.innerText = "?";
-
                 let r = Math.floor(i/cols)+1; let c = (i%cols)+1;
                 if(r%2===0) c = (cols+1)-c; d.style.gridRow=r; d.style.gridColumn=c; d.id=`c-${i}`;
                 b.appendChild(d);
@@ -480,22 +455,24 @@
             document.getElementById(`card-${turn}`).classList.add('active');
             document.querySelectorAll('.token').forEach(t => t.classList.remove('active-token'));
             let ct = document.getElementById(`t-${turn}`); if(ct) ct.classList.add('active-token');
-            
             for(let i=0; i<4; i++) document.getElementById(`order-${i}`).classList.remove('active');
             document.getElementById(`order-${turn}`).classList.add('active');
-
             let banner = document.getElementById('turn-banner');
-            banner.innerText = `輪到：${players[turn].n}`; 
-            banner.style.color = players[turn].c;
-            banner.classList.add('show');
-            setTimeout(() => { banner.classList.remove('show'); }, 2000);
+            banner.innerText = `輪到：${players[turn].n}`; banner.style.color = players[turn].c;
+            banner.classList.add('show'); setTimeout(() => { banner.classList.remove('show'); }, 2000);
         }
 
         function rollDice() {
             if(isSwitchingTurn) return; 
-            state = 'MOVING'; safeBroadcast(); playSfx('roll');
+            
+            // 1. 擲骰動畫
+            let steps = Math.floor(Math.random()*6)+1;
+            showModal("🎲", `<div style="font-size:5rem; color:var(--blue)">${steps}</div><p>步</p>`, false);
+            
             setTimeout(() => {
-                let steps = Math.floor(Math.random()*6)+1;
+                closeModal(); // 關閉骰子視窗，不觸發 nextTurn
+                state = 'MOVING'; safeBroadcast(); playSfx('roll');
+                
                 let p = players[turn]; let c = 0;
                 let t = setInterval(()=>{
                     p.p++;
@@ -505,10 +482,9 @@
                     updateTokenPos(turn, p.p); c++;
                     if(c >= steps) { clearInterval(t); checkEvent(p.p); }
                 }, 300);
-            }, 50);
+            }, 1500);
         }
 
-        // ★★★ 廣播時，如果有目標列表，一起傳送 ★★★
         function safeBroadcast(extras = {}) {
             let payload = {type:'STATE', turn:turn, state:state, baseScore:currentBaseScore, ...extras};
             try { connections.forEach(c => { if(c.open) c.send(payload); }); } catch(e) {}
@@ -537,7 +513,6 @@
             else if(type === 'Steal' || type === 'Swap') {
                 state = 'SELECT_TARGET'; 
                 
-                // ★★★ 關鍵：Host 計算好名單，傳給 Client ★★★
                 let validTargets = [];
                 players.forEach((p, i) => { if(i !== turn) validTargets.push(i); });
                 safeBroadcast({targets: validTargets}); 
@@ -559,8 +534,6 @@
         function executeSpecial(targetIdx, action) {
             if(isSwitchingTurn) return; 
             document.getElementById('modal').style.display='none';
-            
-            // 如果手機端沒傳 action，就依據暫存的事件類型判斷
             if(!action) action = pendingEvent === 'Swap' ? 'swap' : 'steal';
 
             if(action === 'steal') {
@@ -597,14 +570,18 @@
 
         function setWager(m, btn) {
             if(btn) btn.disabled = true;
-            
             if(m === 'R') {
                 currentMultiplier = Math.floor(Math.random() * 4) + 2;
-                alert(`🎰 運氣不錯！翻到了 x${currentMultiplier} 倍！`);
+                // 顯示倍率動畫
+                showModal("🎰", `<div style="font-size:5rem; color:var(--red)">x${currentMultiplier}</div>`, false);
+                setTimeout(()=>{
+                    closeModal();
+                    openQuiz();
+                }, 1500);
             } else {
                 currentMultiplier = 1;
+                openQuiz();
             }
-            openQuiz();
         }
 
         function openQuiz() {
@@ -644,19 +621,30 @@
                 if(cb) cb(); 
             };
         }
+        
+        // 只負責關閉，不觸發下一步
+        function closeModal() { document.getElementById('modal').style.display = 'none'; }
 
-        function victory(n) { confetti(); showModal("冠軍", `🏆 恭喜 ${n} 獲勝！`, false); }
+        function victory(n) {
+            confetti();
+            // 排行榜邏輯
+            let sorted = [...players].sort((a,b)=>b.s - a.s);
+            let html = `<h1>🏆 遊戲結束！</h1><h2>恭喜 ${n} 抵達終點！</h2>
+            <div style="text-align:left; margin-top:20px;">
+            ${sorted.map((p,i)=>`<div class="rank-row" style="display:flex;justify-content:space-between;padding:10px;border-bottom:1px solid #eee;font-size:1.5rem;"><span>${i+1}. ${p.n}</span><b>${p.s} 分</b></div>`).join('')}
+            </div>`;
+            document.getElementById('modal-content').innerHTML = html;
+            document.getElementById('modal').style.display = 'flex';
+        }
         
         function nextTurn() { 
             if(isSwitchingTurn) return;
             isSwitchingTurn = true;
-
             updateHUD(); 
             turn = (turn + 1) % 4; 
             state = 'IDLE'; 
             highlightTurn(); 
             safeBroadcast(); 
-
             setTimeout(() => { isSwitchingTurn = false; }, 2000);
         }
         
