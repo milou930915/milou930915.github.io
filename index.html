@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>高分子派對 (教室版)</title>
+    <title>高分子派對 (完美連線版)</title>
     
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -294,6 +294,8 @@
         ];
         const mapSize = 50; const cols = 10;
         let mapCells = [];
+        // ★★★ 關鍵修改：暫存最新的遊戲狀態 ★★★
+        let lastReceivedState = {turn: 0, state: 'IDLE'}; 
 
         // === 初始化 ===
         window.onload = function() { 
@@ -376,6 +378,8 @@
         function closeLobby() {
             document.getElementById('host-lobby').style.display = 'none';
             alert("遊戲開始！\n\n💡 提示：如果該隊伍沒有人連線，老師可以直接點擊地圖上的「動物棋子」幫忙擲骰子！");
+            // ★★★ 關鍵修改：按下開始時，強制廣播一次狀態 ★★★
+            broadcast();
         }
 
         // === 手機端 (Client) ===
@@ -408,7 +412,12 @@
                         vibe(200);
                     });
                     
-                    conn.on('data', d => updatePad(d));
+                    conn.on('data', d => {
+                        // ★★★ 關鍵修改：收到資料先存起來，再更新 UI ★★★
+                        lastReceivedState = d;
+                        updatePad(d);
+                    });
+
                     conn.on('error', (err) => log("連線錯誤: " + err));
                     conn.on('close', () => { alert("與電腦斷線"); location.reload(); });
                 });
@@ -425,7 +434,7 @@
         function startOffline() {
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('teacher-ui').style.display = 'flex';
-            document.getElementById('host-lobby').style.display = 'none'; // 單機直接關大廳
+            document.getElementById('host-lobby').style.display = 'none';
             document.getElementById('host-room-info').innerText = "單機模式";
             alert("單機模式啟動！老師請直接點擊動物操作。");
         }
@@ -435,6 +444,9 @@
             myTeam = t;
             document.getElementById('team-select').style.display = 'none';
             document.getElementById('pad-screen').style.display = 'flex';
+            // ★★★ 關鍵修改：選完組別後，立刻用最新的狀態刷新畫面 ★★★
+            if(lastReceivedState) updatePad(lastReceivedState);
+            log(`加入隊伍: ${players[t].n}`);
         }
         function sendCmd(cmd, val) { 
             if(conn && conn.open) { conn.send({cmd, val, team:myTeam}); vibe(50); }
@@ -478,7 +490,6 @@
                 let t = document.createElement('div');
                 t.className = 'token'; t.innerText = ["🐯","🐳","🐸","🦁"][i]; 
                 t.style.color=p.c; t.style.borderColor=p.c; t.id=`t-${i}`;
-                // ★★★ 關鍵：老師可隨時代打 ★★★
                 t.onclick = () => { 
                     if(state==='IDLE' && turn===i) {
                          if(confirm(`幫 ${p.n} 擲骰子？`)) rollDice(); 
