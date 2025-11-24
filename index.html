@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>高分子派對 (課堂競賽版)</title>
+    <title>高分子派對 (友情破壞版)</title>
     
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -69,7 +69,7 @@
         /* 2. 電腦端介面 */
         #teacher-ui { display: none; width: 100%; height: 100%; flex-direction: column; position: relative; }
         
-        /* 老師等待大廳 (Lobby) */
+        /* 老師等待大廳 */
         #host-lobby {
             position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
             z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;
@@ -93,14 +93,18 @@
             gap: 5px; width: 95%; height: 85%; max-width: 1400px;
         }
 
-        /* 格子 */
+        /* 格子樣式 */
         .cell {
             background: white; border-radius: 10px; display: flex; flex-direction: column; justify-content: center; align-items: center;
             font-size: 1.2rem; font-weight: bold; color: #ddd; box-shadow: 0 4px 0 #cbd5e1; position: relative; border: 2px solid #ecf0f1;
         }
         .cell.Start { background: #FFD3B6; color: #ff6b6b; border: none;}
         .cell.Finish { background: #FFD93D; color: #d35400; border: 3px solid #ff9f43;}
-        .cell.Q { background: white; color: #aaa; } /* 預設都是Q */
+        .cell.Q { background: white; color: #aaa; } 
+        .cell.Steal { background: #E1BEE7; color: #8E24AA; border: 2px solid #BA68C8; }
+        .cell.Bankrupt { background: #263238; color: #fff; border: 2px solid #000; }
+        .cell.Return { background: #FFCCBC; color: #D84315; border: 2px solid #FF5722; }
+        .cell.Gift { background: #C8E6C9; color: #2E7D32; border: 2px solid #4CAF50; }
         
         /* 棋子 */
         .token {
@@ -123,6 +127,9 @@
         .big-action-btn:active { transform: translateY(15px); box-shadow: 0 0 0 #d4b106; }
         .ans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 400px; }
         .ans-btn { height: 80px; font-size: 1.5rem; color: white; border-radius: 20px; }
+        
+        /* 選擇受害者介面 */
+        .target-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 400px; }
 
         /* 彈窗 */
         .modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 200; }
@@ -134,18 +141,17 @@
         .opt-row.correct { background: #e8f5e9; border-color: var(--green); color: var(--green); font-weight: bold;}
         .opt-row.wrong { background: #ffebee; border-color: var(--red); color: var(--red); }
         
-        /* 輪次大提示 */
+        /* 輪次提示 */
         .turn-banner {
             position: absolute; top: 15%; width: 100%; text-align: center;
             font-size: 3rem; font-weight: bold; text-shadow: 0 2px 10px rgba(0,0,0,0.2);
             pointer-events: none; opacity: 0; transition: opacity 0.5s; z-index: 20;
         }
 
-        /* Debug Log (顯示在左上角) */
         #debug-log {
             position: fixed; top: 0; left: 0; width: 50%; max-height: 200px; overflow-y:auto; 
             background: rgba(0,0,0,0.7); color: #0f0; font-size: 12px; padding: 5px; 
-            z-index: 9999; pointer-events: none; text-align: left; font-family: monospace; display:none; /* 預設隱藏，有錯才開 */
+            z-index: 9999; pointer-events: none; text-align: left; font-family: monospace; display:none; 
         }
     </style>
 </head>
@@ -223,6 +229,10 @@
                     <button class="btn ans-btn" style="background:var(--yellow); color:black" onclick="sendCmd('ANS',3)">D</button>
                 </div>
             </div>
+            <div id="pad-target" style="display:none; width:100%; justify-content:center;">
+                <div class="pad-msg" style="font-size:1.5rem">請選擇要搶奪的對象</div>
+                <div class="target-grid" id="mobile-target-grid"></div>
+            </div>
         </div>
     </div>
 
@@ -240,7 +250,7 @@
             }
         };
 
-        // 完整題庫 (35題)
+        // 完整題庫
         const allQuestions = [
             {q:"1.高分子的分子結構一般是？", o:["很小原子", "長鏈狀", "金屬排列", "氣體分子"], a:1},
             {q:"2.下列何者是「熱固性塑膠」？", o:["膠帶", "保麗龍", "酚醛樹脂", "寶特瓶"], a:2},
@@ -279,8 +289,7 @@
             {q:"35.合成高分子例子？", o:["蛋白質", "天然橡膠", "PVC", "纖維素"], a:2}
         ];
 
-        let questionPool = []; // 用來放洗牌後的題目
-
+        let questionPool = [];
         let peer, conn, myTeam = -1, turn = 0, state = "IDLE", currentQ = null;
         let connections = [];
         let players = [
@@ -292,20 +301,14 @@
         let lastReceivedState = {turn: 0, state: 'IDLE'};
         let audioCtx; 
 
-        // 全局錯誤捕捉
-        window.onerror = function(msg, url, line) {
-            log(`❌ ERROR: ${msg} (Line ${line})`);
-            return false;
-        };
-
         // === 初始化 ===
         window.onload = function() { 
             try {
-                shuffleQuestions(); // 洗牌
+                shuffleQuestions(); 
                 initMap(); 
                 renderBoard(); 
                 highlightTurn();
-            } catch(e) { log("Init Failed: " + e); }
+            } catch(e) { console.log("Init Failed", e); }
         };
 
         function initAudio() {
@@ -315,7 +318,6 @@
             } catch(e) {}
         }
 
-        // 音效 (安全版)
         function playSfx(name) {
             try {
                 if(!audioCtx) initAudio();
@@ -341,41 +343,45 @@
         }
 
         function vibe(p) { if(navigator.vibrate) navigator.vibrate(p); }
-        function log(msg) { 
-            let d = document.getElementById('debug-log');
-            if(d.style.display !== 'none') {
-                 d.innerHTML = `<div>${msg}</div>` + d.innerHTML; 
-            }
-            console.log(msg); 
-        }
 
-        // 題目洗牌機制
         function shuffleQuestions() {
             questionPool = [...allQuestions];
-            // Fisher-Yates Shuffle
             for (let i = questionPool.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [questionPool[i], questionPool[j]] = [questionPool[j], questionPool[i]];
             }
-            log("題目已洗牌，共 " + questionPool.length + " 題");
         }
-
         function getNextQuestion() {
-            if(questionPool.length === 0) shuffleQuestions(); // 題庫用完再洗一次
+            if(questionPool.length === 0) shuffleQuestions();
             return questionPool.pop();
         }
 
+        // ★★★ 刺激地圖生成 ★★★
         function initMap() {
-            mapCells = new Array(mapSize).fill("Q"); // 預設全是 Q
-            mapCells[0] = "Start"; mapCells[mapSize-1] = "Finish";
-            // 只保留極少數特殊格 (3-4格)
-            const sps = [{t:"Good", c:2}, {t:"Bad", c:2}];
-            sps.forEach(sp => {
-                for(let i=0; i<sp.c; i++) {
-                    let r; do { r = Math.floor(Math.random()*(mapSize-2))+1; } while(mapCells[r] !== "Q");
-                    mapCells[r] = sp.t;
-                }
-            });
+            // 建立一個有權重的陣列
+            let cellTypes = [];
+            for(let i=0; i<35; i++) cellTypes.push("Q");        // 70% 答題
+            for(let i=0; i<5; i++) cellTypes.push("Steal");     // 10% 搶奪
+            for(let i=0; i<3; i++) cellTypes.push("Gift");      // 6% 送分
+            for(let i=0; i<2; i++) cellTypes.push("Return");    // 4% 回原點
+            for(let i=0; i<2; i++) cellTypes.push("Bankrupt");  // 4% 破產
+            // 剩下機率填滿
+
+            // 洗牌
+            for (let i = cellTypes.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [cellTypes[i], cellTypes[j]] = [cellTypes[j], cellTypes[i]];
+            }
+
+            mapCells = new Array(mapSize);
+            mapCells[0] = "Start";
+            mapCells[mapSize-1] = "Finish";
+            
+            // 填入地圖 (避開頭尾)
+            for(let i=1; i<mapSize-1; i++) {
+                if(i <= cellTypes.length) mapCells[i] = cellTypes[i-1];
+                else mapCells[i] = "Q"; // 萬一不夠就補 Q
+            }
         }
 
         // === 電腦端 (Host) ===
@@ -383,35 +389,20 @@
             initAudio();
             const roomCode = Math.floor(1000 + Math.random() * 9000);
             const peerId = APP_PREFIX + roomCode;
-
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('teacher-ui').style.display = 'flex';
-            
             document.getElementById('lobby-code').innerText = roomCode;
-            log("HOST: 正在建立 Peer...");
-
             try {
                 peer = new Peer(peerId, peerConfig);
-                
-                peer.on('open', (id) => {
-                    log(`HOST: 房間已建立 ${roomCode}`);
-                });
-                
-                peer.on('error', e => {
-                    alert("連線系統錯誤: " + e.type);
-                });
-                
                 peer.on('connection', c => {
-                    connections = connections.filter(con => con.open);
                     connections.push(c);
                     document.getElementById('lobby-status').innerText = `目前連線人數: ${connections.length}`;
-                    
                     setTimeout(() => { if(c.open) c.send({type:'STATE', turn:turn, state:state}); }, 500);
-
                     c.on('data', d => {
-                        if(d.team !== turn) return; // 嚴格檢查回合
+                        if(d.team !== turn) return; 
                         if(d.cmd === 'ROLL' && state === 'IDLE') rollDice();
                         if(d.cmd === 'ANS' && state === 'QUIZ') checkAns(d.val);
+                        if(d.cmd === 'TARGET' && state === 'SELECT_TARGET') executeSteal(d.val);
                     });
                 });
             } catch(e) { alert("瀏覽器不支援 WebRTC"); }
@@ -419,7 +410,7 @@
 
         function closeLobby() {
             document.getElementById('host-lobby').style.display = 'none';
-            highlightTurn(); // 顯示第一組
+            highlightTurn();
             safeBroadcast();
         }
 
@@ -427,24 +418,16 @@
         function startStudent() {
             initAudio();
             const code = document.getElementById('room-input').value;
-            if(!code || code.length !== 4) { alert("請輸入 4 位數房間號！"); return; }
+            if(!code) return alert("請輸入房間號");
             const hostId = APP_PREFIX + code;
-            
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('conn-msg').style.display = 'flex';
-            document.getElementById('conn-detail').innerText = `正在尋找房間 ${code}...`;
-
-            let connTimeout = setTimeout(() => {
-                alert("連線超時！建議使用手機熱點。");
-                location.reload();
-            }, 8000);
             
             try {
                 peer = new Peer(peerConfig); 
                 peer.on('open', () => {
                     conn = peer.connect(hostId, {reliable: true});
                     conn.on('open', () => {
-                        clearTimeout(connTimeout);
                         document.getElementById('conn-msg').style.display = 'none';
                         document.getElementById('student-ui').style.display = 'flex';
                     });
@@ -452,14 +435,8 @@
                         lastReceivedState = d;
                         updatePad(d);
                     });
-                    conn.on('close', () => { alert("與電腦斷線"); location.reload(); });
                 });
-                peer.on('error', (err) => {
-                    clearTimeout(connTimeout);
-                    alert("連線失敗 (Error: " + err.type + ")");
-                    location.reload();
-                });
-            } catch(e) { alert("瀏覽器不支援"); location.reload(); }
+            } catch(e) { alert("不支援"); }
         }
 
         function startOffline() {
@@ -469,18 +446,15 @@
             highlightTurn();
         }
 
-        // === 遊戲邏輯 ===
         function joinGame(t) {
             myTeam = t;
             document.getElementById('team-select').style.display = 'none';
             document.getElementById('pad-screen').style.display = 'flex';
             if(lastReceivedState) updatePad(lastReceivedState);
         }
+
         function sendCmd(cmd, val) { 
-            if(conn && conn.open) { 
-                conn.send({cmd, val, team:myTeam}); 
-                vibe(50); 
-            }
+            if(conn && conn.open) { conn.send({cmd, val, team:myTeam}); vibe(50); }
         }
 
         function updatePad(data) {
@@ -488,6 +462,7 @@
             let status = document.getElementById('pad-msg');
             document.getElementById('pad-dice').style.display = 'none';
             document.getElementById('pad-quiz').style.display = 'none';
+            document.getElementById('pad-target').style.display = 'none';
             
             if(isMyTurn) {
                 status.style.color = players[myTeam].c;
@@ -495,10 +470,31 @@
                     status.innerText = "👉 輪到你了！"; document.getElementById('pad-dice').style.display = 'flex'; vibe([100,50,100]);
                 } else if (data.state === 'QUIZ') {
                     status.innerText = "👉 請作答！"; document.getElementById('pad-quiz').style.display = 'flex';
+                } else if (data.state === 'SELECT_TARGET') {
+                    // 顯示搶奪對象選擇按鈕
+                    document.getElementById('pad-target').style.display = 'flex';
+                    renderMobileTargets(); // 繪製按鈕
                 } else status.innerText = "看大螢幕...";
             } else {
                 status.style.color = "#888"; status.innerText = `等待 ${players[data.turn].n}...`;
             }
+        }
+        
+        function renderMobileTargets() {
+             let grid = document.getElementById('mobile-target-grid');
+             grid.innerHTML = '';
+             players.forEach((p,i) => {
+                 if(i !== turn) {
+                     let btn = document.createElement('button');
+                     btn.className = 'btn';
+                     btn.style.background = p.c;
+                     btn.style.color = 'white';
+                     btn.style.padding = '20px';
+                     btn.innerText = `搶 ${p.n}`;
+                     btn.onclick = () => sendCmd('TARGET', i);
+                     grid.appendChild(btn);
+                 }
+             });
         }
 
         function renderBoard() {
@@ -509,20 +505,21 @@
             for(let i=0; i<mapSize; i++) {
                 let d = document.createElement('div');
                 d.className = `cell ${mapCells[i]}`;
+                // 顯示圖示
                 if(mapCells[i]==='Start') d.innerText = "🚀";
                 else if(mapCells[i]==='Finish') d.innerText = "🏆";
-                else if(mapCells[i]==='Good') d.innerText = "💎";
-                else if(mapCells[i]==='Bad') d.innerText = "💣";
-                else d.innerText = i+1; // Q 格顯示數字
+                else if(mapCells[i]==='Steal') d.innerText = "😈";
+                else if(mapCells[i]==='Bankrupt') d.innerText = "💸";
+                else if(mapCells[i]==='Return') d.innerText = "🏠";
+                else if(mapCells[i]==='Gift') d.innerText = "🎁";
+                else d.innerText = i+1; 
                 
                 let r = Math.floor(i/cols)+1; let c = (i%cols)+1;
                 if(r%2===0) c = (cols+1)-c;
                 d.style.gridRow=r; d.style.gridColumn=c; d.id=`c-${i}`;
                 b.appendChild(d);
             }
-            players.forEach((p,i) => {
-                updateTokenPos(i, 0); 
-            });
+            players.forEach((p,i) => { updateTokenPos(i, 0); });
         }
         
         function updateTokenPos(pid, idx) {
@@ -534,12 +531,7 @@
                 token.className = 'token'; 
                 token.innerText = ["🐯","🐳","🐸","🦁"][pid]; 
                 token.style.color=p.c; token.style.borderColor=p.c; token.id=`t-${pid}`;
-                // 代打功能
-                token.onclick = () => { 
-                    if(state==='IDLE' && turn===pid) {
-                         if(confirm(`幫 ${p.n} 擲骰子？`)) rollDice(); 
-                    }
-                };
+                token.onclick = () => { if(state==='IDLE' && turn===pid && confirm(`幫 ${p.n} 擲骰子？`)) rollDice(); };
             }
             if(cell) cell.appendChild(token);
         }
@@ -547,13 +539,10 @@
         function highlightTurn() {
             for(let i=0; i<4; i++) document.getElementById(`card-${i}`).classList.remove('active');
             document.getElementById(`card-${turn}`).classList.add('active');
-            
-            // 顯示大 Banner
             let banner = document.getElementById('turn-banner');
             banner.innerText = `輪到：${players[turn].n}`;
             banner.style.color = players[turn].c;
             banner.style.opacity = 1;
-            // 2秒後淡出，避免擋視線
             setTimeout(() => { banner.style.opacity = 0; }, 2500);
         }
 
@@ -561,7 +550,6 @@
             state = 'MOVING';
             safeBroadcast();
             playSfx('roll');
-            
             setTimeout(() => {
                 let steps = Math.floor(Math.random()*6)+1;
                 let p = players[turn];
@@ -579,29 +567,54 @@
         }
 
         function safeBroadcast() {
-            try {
-                connections.forEach(c => {
-                    if(c.open) c.send({type:'STATE', turn:turn, state:state});
-                });
-            } catch(e) {}
+            try { connections.forEach(c => { if(c.open) c.send({type:'STATE', turn:turn, state:state}); }); } catch(e) {}
         }
 
         function checkEvent(pos) {
             let t = mapCells[pos];
             if(t==='Q') openQuiz();
-            else if(t==='Good') showModal("好運", "💎 運氣不錯，加 10 分！", true, ()=>{players[turn].s+=10; nextTurn();});
-            else if(t==='Bad') showModal("厄運", "💣 踩到陷阱，扣 10 分！", true, ()=>{players[turn].s-=10; nextTurn();});
+            else if(t==='Gift') showModal("🎁 天降好禮", "恭喜獲得 30 分！", true, ()=>{players[turn].s+=30; nextTurn();});
+            else if(t==='Return') showModal("🏠 慘遭退貨", "回到原點重新開始！", true, ()=>{
+                players[turn].p=0; updateTokenPos(turn,0); nextTurn();
+            });
+            else if(t==='Bankrupt') showModal("💸 破產啦", "分數全部歸零！(幫QQ)", true, ()=>{
+                players[turn].s=0; nextTurn();
+            });
+            else if(t==='Steal') {
+                // 啟動搶奪模式
+                state = 'SELECT_TARGET'; 
+                safeBroadcast();
+                // 老師介面顯示
+                let html = `<h1>😈 選擇搶奪對象</h1><p>請選擇一組搶走 20% 分數：</p><div class="target-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">`;
+                players.forEach((p,i) => {
+                    if(i!==turn) html += `<button class="btn" style="background:${p.c}; color:white; padding:15px;" onclick="executeSteal(${i})">${p.n}</button>`;
+                });
+                html += `</div>`;
+                document.getElementById('modal-content').innerHTML = html;
+                document.getElementById('modal').style.display='flex';
+            }
             else nextTurn();
+        }
+
+        function executeSteal(targetIdx) {
+            document.getElementById('modal').style.display='none';
+            let stolen = Math.floor(players[targetIdx].s * 0.2); // 搶 20%
+            if(stolen < 0) stolen = 0; // 不會搶成負的
+            
+            players[targetIdx].s -= stolen;
+            players[turn].s += stolen;
+            
+            alert(`😈 搶奪成功！\n從 ${players[targetIdx].n} 搶走了 ${stolen} 分！`);
+            nextTurn();
         }
 
         function openQuiz() {
             state = 'QUIZ'; safeBroadcast();
-            currentQ = getNextQuestion(); // 取得不重複題目
+            currentQ = getNextQuestion();
             let html = `<h2 style="color:#333">${currentQ.q}</h2><div style="text-align:left">`;
             currentQ.o.forEach((o, i) => {
                 html += `<div class="opt-row" onclick="checkAns(${i}, this)">${String.fromCharCode(65+i)}. ${o}</div>`;
             });
-            // 這裡按鈕隱藏，直到答對或答錯
             html += `</div><button class="btn" style="background:#333; color:white; width:100%; padding:10px; margin-top:10px; display:none;" id="next-btn" onclick="closeModal()">下一位</button>`;
             document.getElementById('modal-content').innerHTML = html;
             document.getElementById('modal').style.display = 'flex';
@@ -611,19 +624,12 @@
             let rows = document.querySelectorAll('.opt-row');
             let target = el || rows[ans];
             if(!target) return;
-            
-            // 防止重複點擊
             if(document.getElementById('next-btn').style.display === 'block') return;
 
             if(ans === currentQ.a) {
-                target.classList.add('correct'); 
-                players[turn].s += 10;
-                playSfx('win');
+                target.classList.add('correct'); players[turn].s += 10; playSfx('win');
             } else {
-                target.classList.add('wrong'); 
-                rows[currentQ.a].classList.add('correct'); // 顯示正確答案
-                players[turn].s -= 10; // 扣分
-                playSfx('fail');
+                target.classList.add('wrong'); rows[currentQ.a].classList.add('correct'); players[turn].s -= 10; playSfx('fail');
             }
             document.getElementById('next-btn').style.display = 'block';
         }
@@ -636,16 +642,7 @@
 
         function victory(n) { confetti(); showModal("冠軍", `🏆 恭喜 ${n} 獲勝！`, false); }
         function closeModal() { document.getElementById('modal').style.display = 'none'; nextTurn(); }
-        
-        function nextTurn() { 
-            updateHUD(); 
-            // 強制順序：0 -> 1 -> 2 -> 3 -> 0
-            turn = (turn + 1) % 4; 
-            state = 'IDLE'; 
-            highlightTurn(); 
-            safeBroadcast(); 
-        }
-        
+        function nextTurn() { updateHUD(); turn = (turn + 1) % 4; state = 'IDLE'; highlightTurn(); safeBroadcast(); }
         function updateHUD() { for(let i=0; i<4; i++) document.getElementById(`s${i}`).innerText = players[i].s; }
     </script>
 </body>
