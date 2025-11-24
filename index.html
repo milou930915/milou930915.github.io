@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>高分子派對 (終極課堂版)</title>
+    <title>高分子派對 (賭命翻倍版)</title>
     
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -50,9 +50,7 @@
             width: 80%; max-width: 300px; padding: 20px; font-size: 1.5rem; color: white;
             border-radius: 20px; box-shadow: 0 8px 0 rgba(0,0,0,0.2);
         }
-        .input-group {
-            display: flex; gap: 10px; width: 80%; max-width: 300px;
-        }
+        .input-group { display: flex; gap: 10px; width: 80%; max-width: 300px; }
         #room-input {
             flex: 1; padding: 15px; border-radius: 15px; border: none; font-size: 1.5rem; text-align: center;
             outline: none; box-shadow: 0 4px 0 rgba(0,0,0,0.1); font-weight: bold; color: #555;
@@ -77,13 +75,9 @@
             background: white; padding: 8px 20px; border-radius: 50px; font-size: 1.2rem; 
             display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 0 #ddd; border: 3px solid transparent; transition: 0.3s; opacity: 0.5;
         }
-        /* 當前回合高亮 */
         .score-card.active { 
-            transform: scale(1.15) translateY(-5px); 
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2); 
-            border-color: currentColor; 
-            opacity: 1; 
-            font-weight: bold;
+            transform: scale(1.15) translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); 
+            border-color: currentColor; opacity: 1; font-weight: bold;
         }
 
         .board-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 10px; position: relative; }
@@ -99,7 +93,7 @@
         }
         .cell.Start { background: #FFD3B6; color: #ff6b6b; border: none;}
         .cell.Finish { background: #FFD93D; color: #d35400; border: 3px solid #ff9f43;}
-        .cell.Q { background: white; color: #888; border: 2px solid #eee; } /* 題目格 */
+        .cell.Q { background: white; color: #888; border: 2px solid #eee; }
         .cell.Steal { background: #E1BEE7; color: #8E24AA; border: 2px solid #BA68C8; }
         .cell.Bankrupt { background: #263238; color: #fff; border: 2px solid #000; }
         .cell.Return { background: #FFCCBC; color: #D84315; border: 2px solid #FF5722; }
@@ -112,7 +106,6 @@
             display: flex; justify-content: center; align-items: center; font-size: 1.5rem;
             transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer; opacity: 0.6;
         }
-        /* 只有當前回合的棋子會變亮並跳動 */
         .token.active-token { opacity: 1; transform: scale(1.2); animation: jump 1s infinite alternate; z-index: 20; box-shadow: 0 0 20px rgba(255,255,0,0.8); }
         @keyframes jump { from{transform: translateY(0) scale(1.2);} to{transform: translateY(-10px) scale(1.2);} }
 
@@ -126,16 +119,18 @@
         .ans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 400px; }
         .ans-btn { height: 80px; font-size: 1.5rem; color: white; border-radius: 20px; }
         .target-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 400px; }
+        .wager-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 500px; }
 
         /* 彈窗 */
         .modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 200; }
-        .modal-card { background: white; width: 90%; max-width: 600px; padding: 30px; border-radius: 30px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); animation: bounceIn 0.4s; max-height: 90vh; overflow-y: auto;}
+        .modal-card { background: white; width: 90%; max-width: 650px; padding: 30px; border-radius: 30px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); animation: bounceIn 0.4s; max-height: 90vh; overflow-y: auto;}
+        @keyframes bounceIn { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
         
         .opt-row { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 15px; text-align: left; font-size: 1.2rem; border: 3px solid transparent; cursor: pointer; transition: background 0.2s; }
         .opt-row.correct { background: #e8f5e9; border-color: var(--green); color: var(--green); font-weight: bold;}
         .opt-row.wrong { background: #ffebee; border-color: var(--red); color: var(--red); }
         
-        /* 下一位按鈕 (閃爍) */
+        /* 閃爍按鈕 */
         #next-btn { 
             animation: pulseBtn 1s infinite; 
             font-size: 1.5rem; padding: 15px; border-radius: 15px; width: 100%; margin-top: 20px;
@@ -143,13 +138,7 @@
         }
         @keyframes pulseBtn { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
-        /* 輪次提示Banner */
-        .turn-banner {
-            position: absolute; top: 5%; width: 100%; text-align: center;
-            font-size: 2.5rem; font-weight: bold; text-shadow: 0 2px 10px rgba(255,255,255,0.8);
-            z-index: 15; background: rgba(255,255,255,0.7); padding: 5px 0;
-        }
-
+        .turn-banner { position: absolute; top: 5%; width: 100%; text-align: center; font-size: 2.5rem; font-weight: bold; text-shadow: 0 2px 10px rgba(255,255,255,0.8); z-index: 15; background: rgba(255,255,255,0.7); padding: 5px 0; }
         #conn-msg { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; flex-direction: column; align-items: center; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
     </style>
 </head>
@@ -171,7 +160,7 @@
 
     <div id="teacher-ui">
         <div id="host-lobby">
-            <h2 style="margin:0; opacity:0.8;">請輸入房間號碼</h2>
+            <h2 style="margin:0; opacity:0.8;">請學生輸入房間號碼</h2>
             <div id="lobby-code" class="room-code-display">----</div>
             <div class="lobby-info" id="lobby-status">目前連線: 0</div>
             <button class="btn" style="background:var(--green); color:white; padding: 20px 60px; font-size: 2rem;" onclick="closeLobby()">🚀 開始遊戲</button>
@@ -201,6 +190,15 @@
         <div id="pad-screen" class="mobile-center" style="display:none;">
             <div id="pad-msg" class="pad-msg">等待中...</div>
             <div id="pad-dice" style="display:none;"><button class="btn big-action-btn" onclick="sendCmd('ROLL')">🎲</button></div>
+            
+            <div id="pad-wager" style="display:none; width:100%; flex-direction:column; align-items:center;">
+                <h2 style="margin-bottom:20px;">要翻倍嗎？</h2>
+                <div class="wager-grid">
+                    <button class="btn" style="background:var(--blue); color:white; padding:30px; font-size:1.5rem;" onclick="sendCmd('WAGER', 1)">🛡️ 一般<br>(20分)</button>
+                    <button class="btn" style="background:var(--red); color:white; padding:30px; font-size:1.5rem;" onclick="sendCmd('WAGER', 2)">🔥 翻倍<br>(40分)</button>
+                </div>
+            </div>
+
             <div id="pad-quiz" style="display:none; width:100%; justify-content:center;">
                 <div class="ans-grid">
                     <button class="btn ans-btn" style="background:var(--red)" onclick="sendCmd('ANS',0)">A</button>
@@ -219,11 +217,10 @@
     <div id="modal" class="modal-mask"><div class="modal-card"><div id="modal-content"></div></div></div>
 
     <script>
-        // === 1. 設定與題庫 ===
+        // === 設定 ===
         const APP_PREFIX = "poly-party-2025-"; 
         const peerConfig = { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } };
         
-        // 35題 (內建洗牌)
         const allQuestions = [
             {q:"1.高分子的分子結構一般是？", o:["很小原子", "長鏈狀", "金屬排列", "氣體分子"], a:1},
             {q:"2.下列何者是「熱固性塑膠」？", o:["膠帶", "保麗龍", "酚醛樹脂", "寶特瓶"], a:2},
@@ -263,7 +260,7 @@
         ];
         
         let questionPool = [];
-        let peer, conn, myTeam = -1, turn = 0, state = "IDLE", currentQ = null;
+        let peer, conn, myTeam = -1, turn = 0, state = "IDLE", currentQ = null, currentMultiplier = 1;
         let connections = [];
         let players = [
             {n:"第一組", c:"var(--red)", p:0, s:0}, {n:"第二組", c:"var(--blue)", p:0, s:0},
@@ -274,43 +271,23 @@
         let lastReceivedState = {turn: 0, state: 'IDLE'};
         let audioCtx; 
 
-        // === 2. 初始化 ===
+        // === 初始化 ===
         window.onload = function() { 
-            try {
-                shuffleQuestions(); 
-                initMap(); 
-                renderBoard(); 
-            } catch(e) { console.log(e); }
+            try { shuffleQuestions(); initMap(); renderBoard(); } catch(e) {}
         };
 
         function initAudio() {
-            try {
-                if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if(audioCtx.state === 'suspended') audioCtx.resume();
-            } catch(e) {}
+            try { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if(audioCtx.state === 'suspended') audioCtx.resume(); } catch(e) {}
         }
 
         function playSfx(name) {
             try {
-                if(!audioCtx) initAudio();
-                if(!audioCtx) return;
+                if(!audioCtx) initAudio(); if(!audioCtx) return;
                 const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
                 osc.connect(g); g.connect(audioCtx.destination);
-                if(name==='roll'){
-                    osc.type='triangle';osc.frequency.setValueAtTime(200,audioCtx.currentTime);
-                    g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.2);
-                    osc.start();osc.stop(audioCtx.currentTime+0.2);
-                }
-                if(name==='win'){
-                    osc.type='sine';osc.frequency.setValueAtTime(400,audioCtx.currentTime);
-                    g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.5);
-                    osc.start();osc.stop(audioCtx.currentTime+0.5);
-                }
-                if(name==='fail'){
-                    osc.type='sawtooth';osc.frequency.setValueAtTime(100,audioCtx.currentTime);
-                    g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.4);
-                    osc.start();osc.stop(audioCtx.currentTime+0.4);
-                }
+                if(name==='roll'){osc.type='triangle';osc.frequency.setValueAtTime(200,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.2);osc.start();osc.stop(audioCtx.currentTime+0.2);}
+                if(name==='win'){osc.type='sine';osc.frequency.setValueAtTime(400,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.5);osc.start();osc.stop(audioCtx.currentTime+0.5);}
+                if(name==='fail'){osc.type='sawtooth';osc.frequency.setValueAtTime(100,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.4);osc.start();osc.stop(audioCtx.currentTime+0.4);}
             } catch(e) {}
         }
         function vibe(p) { if(navigator.vibrate) navigator.vibrate(p); }
@@ -322,35 +299,21 @@
                 [questionPool[i], questionPool[j]] = [questionPool[j], questionPool[i]];
             }
         }
-        function getNextQuestion() {
-            if(questionPool.length === 0) shuffleQuestions();
-            return questionPool.pop();
-        }
+        function getNextQuestion() { if(questionPool.length === 0) shuffleQuestions(); return questionPool.pop(); }
 
         function initMap() {
             let types = [];
-            // 70% 題目, 30% 特殊事件
             for(let i=0; i<35; i++) types.push("Q");
             for(let i=0; i<5; i++) types.push("Steal"); 
             for(let i=0; i<3; i++) types.push("Gift");
             for(let i=0; i<2; i++) types.push("Return");
             for(let i=0; i<3; i++) types.push("Bankrupt");
-            
-            // 洗牌
-            for (let i = types.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [types[i], types[j]] = [types[j], types[i]];
-            }
-
-            mapCells = new Array(mapSize);
-            mapCells[0] = "Start";
-            mapCells[mapSize-1] = "Finish";
-            for(let i=1; i<mapSize-1; i++) {
-                mapCells[i] = types[i-1] || "Q";
-            }
+            for (let i = types.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [types[i], types[j]] = [types[j], types[i]]; }
+            mapCells = new Array(mapSize); mapCells[0] = "Start"; mapCells[mapSize-1] = "Finish";
+            for(let i=1; i<mapSize-1; i++) { mapCells[i] = types[i-1] || "Q"; }
         }
 
-        // === 3. 連線邏輯 ===
+        // === Host ===
         function startTeacher() {
             initAudio();
             const roomCode = Math.floor(1000 + Math.random() * 9000);
@@ -358,7 +321,6 @@
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('teacher-ui').style.display = 'flex';
             document.getElementById('lobby-code').innerText = roomCode;
-            
             try {
                 peer = new Peer(peerId, peerConfig);
                 peer.on('connection', c => {
@@ -368,19 +330,17 @@
                     c.on('data', d => {
                         if(d.team !== turn) return; 
                         if(d.cmd === 'ROLL' && state === 'IDLE') rollDice();
+                        if(d.cmd === 'WAGER' && state === 'WAGER') setWager(d.val);
                         if(d.cmd === 'ANS' && state === 'QUIZ') checkAns(d.val);
                         if(d.cmd === 'TARGET' && state === 'SELECT_TARGET') executeSteal(d.val);
                     });
                 });
-            } catch(e) { alert("不支援"); }
+            } catch(e) { alert("不支援 WebRTC"); }
         }
 
-        function closeLobby() {
-            document.getElementById('host-lobby').style.display = 'none';
-            highlightTurn();
-            safeBroadcast();
-        }
+        function closeLobby() { document.getElementById('host-lobby').style.display = 'none'; highlightTurn(); safeBroadcast(); }
 
+        // === Client ===
         function startStudent() {
             initAudio();
             const code = document.getElementById('room-input').value;
@@ -388,7 +348,6 @@
             const hostId = APP_PREFIX + code;
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('conn-msg').style.display = 'flex';
-            
             try {
                 peer = new Peer(peerConfig); 
                 peer.on('open', () => {
@@ -397,10 +356,7 @@
                         document.getElementById('conn-msg').style.display = 'none';
                         document.getElementById('student-ui').style.display = 'flex';
                     });
-                    conn.on('data', d => {
-                        lastReceivedState = d;
-                        updatePad(d);
-                    });
+                    conn.on('data', d => { lastReceivedState = d; updatePad(d); });
                 });
             } catch(e) { alert("不支援"); }
         }
@@ -419,9 +375,7 @@
             if(lastReceivedState) updatePad(lastReceivedState);
         }
 
-        function sendCmd(cmd, val) { 
-            if(conn && conn.open) { conn.send({cmd, val, team:myTeam}); vibe(50); }
-        }
+        function sendCmd(cmd, val) { if(conn && conn.open) { conn.send({cmd, val, team:myTeam}); vibe(50); } }
 
         function updatePad(data) {
             let isMyTurn = (data.turn === myTeam);
@@ -429,11 +383,14 @@
             document.getElementById('pad-dice').style.display = 'none';
             document.getElementById('pad-quiz').style.display = 'none';
             document.getElementById('pad-target').style.display = 'none';
+            document.getElementById('pad-wager').style.display = 'none';
             
             if(isMyTurn) {
                 status.style.color = players[myTeam].c;
                 if(data.state === 'IDLE') {
                     status.innerText = "👉 輪到你了！"; document.getElementById('pad-dice').style.display = 'flex'; vibe([100,50,100]);
+                } else if (data.state === 'WAGER') {
+                    status.innerText = "👉 下注時間"; document.getElementById('pad-wager').style.display = 'flex';
                 } else if (data.state === 'QUIZ') {
                     status.innerText = "👉 請作答！"; document.getElementById('pad-quiz').style.display = 'flex';
                 } else if (data.state === 'SELECT_TARGET') {
@@ -461,15 +418,11 @@
              });
         }
 
-        // === 4. 遊戲主邏輯 ===
         function renderBoard() {
             const b = document.getElementById('board');
-            if(!b) return;
-            b.innerHTML = ''; 
-
+            if(!b) return; b.innerHTML = ''; 
             for(let i=0; i<mapSize; i++) {
-                let d = document.createElement('div');
-                d.className = `cell ${mapCells[i]}`;
+                let d = document.createElement('div'); d.className = `cell ${mapCells[i]}`;
                 if(mapCells[i]==='Start') d.innerText = "🚀";
                 else if(mapCells[i]==='Finish') d.innerText = "🏆";
                 else if(mapCells[i]==='Steal') d.innerText = "😈";
@@ -477,10 +430,8 @@
                 else if(mapCells[i]==='Return') d.innerText = "🏠";
                 else if(mapCells[i]==='Gift') d.innerText = "🎁";
                 else d.innerText = i+1; 
-                
                 let r = Math.floor(i/cols)+1; let c = (i%cols)+1;
-                if(r%2===0) c = (cols+1)-c;
-                d.style.gridRow=r; d.style.gridColumn=c; d.id=`c-${i}`;
+                if(r%2===0) c = (cols+1)-c; d.style.gridRow=r; d.style.gridColumn=c; d.id=`c-${i}`;
                 b.appendChild(d);
             }
             players.forEach((p,i) => { updateTokenPos(i, 0); });
@@ -491,44 +442,32 @@
             let token = document.getElementById(`t-${pid}`);
             if(!token) {
                 let p = players[pid];
-                token = document.createElement('div');
-                token.className = 'token'; 
+                token = document.createElement('div'); token.className = 'token'; 
                 token.innerText = ["🐯","🐳","🐸","🦁"][pid]; 
                 token.style.color=p.c; token.style.borderColor=p.c; token.id=`t-${pid}`;
-                // 代打功能
                 token.onclick = () => { if(state==='IDLE' && turn===pid && confirm(`幫 ${p.n} 擲骰子？`)) rollDice(); };
             }
             if(cell) cell.appendChild(token);
         }
         
         function highlightTurn() {
-            // 清除舊高亮
-            document.querySelectorAll('.token').forEach(t => t.classList.remove('active-token'));
             for(let i=0; i<4; i++) document.getElementById(`card-${i}`).classList.remove('active');
-            
-            // 新增高亮
             document.getElementById(`card-${turn}`).classList.add('active');
-            let currentToken = document.getElementById(`t-${turn}`);
-            if(currentToken) currentToken.classList.add('active-token');
-
+            document.querySelectorAll('.token').forEach(t => t.classList.remove('active-token'));
+            let ct = document.getElementById(`t-${turn}`); if(ct) ct.classList.add('active-token');
             let banner = document.getElementById('turn-banner');
-            banner.innerText = `輪到：${players[turn].n}`;
-            banner.style.color = players[turn].c;
+            banner.innerText = `輪到：${players[turn].n}`; banner.style.color = players[turn].c;
         }
 
         function rollDice() {
-            state = 'MOVING';
-            safeBroadcast();
-            playSfx('roll');
+            state = 'MOVING'; safeBroadcast(); playSfx('roll');
             setTimeout(() => {
                 let steps = Math.floor(Math.random()*6)+1;
-                let p = players[turn];
-                let c = 0;
+                let p = players[turn]; let c = 0;
                 let t = setInterval(()=>{
                     p.p++;
                     if(p.p >= mapSize-1) {
-                        p.p = mapSize-1; clearInterval(t); updateTokenPos(turn, p.p);
-                        victory(p.n); return;
+                        p.p = mapSize-1; clearInterval(t); updateTokenPos(turn, p.p); victory(p.n); return;
                     }
                     updateTokenPos(turn, p.p); c++;
                     if(c >= steps) { clearInterval(t); checkEvent(p.p); }
@@ -542,17 +481,12 @@
 
         function checkEvent(pos) {
             let t = mapCells[pos];
-            if(t==='Q') openQuiz();
+            if(t==='Q') openWager(); // 先進入下注階段
             else if(t==='Gift') showModal("🎁 天降好禮", "恭喜獲得 30 分！", true, ()=>{players[turn].s+=30; nextTurn();});
-            else if(t==='Return') showModal("🏠 慘遭退貨", "回到原點重新開始！", true, ()=>{
-                players[turn].p=0; updateTokenPos(turn,0); nextTurn();
-            });
-            else if(t==='Bankrupt') showModal("💸 破產啦", "分數全部歸零！(幫QQ)", true, ()=>{
-                players[turn].s=0; nextTurn();
-            });
+            else if(t==='Return') showModal("🏠 慘遭退貨", "回到原點重新開始！", true, ()=>{players[turn].p=0; updateTokenPos(turn,0); nextTurn();});
+            else if(t==='Bankrupt') showModal("💸 破產啦", "分數全部歸零！(幫QQ)", true, ()=>{players[turn].s=0; nextTurn();});
             else if(t==='Steal') {
-                state = 'SELECT_TARGET'; 
-                safeBroadcast();
+                state = 'SELECT_TARGET'; safeBroadcast();
                 let html = `<h1>😈 選擇搶奪對象</h1><p>請選擇一組搶走 20% 分數：</p><div class="target-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">`;
                 players.forEach((p,i) => {
                     if(i!==turn) html += `<button class="btn" style="background:${p.c}; color:white; padding:15px;" onclick="executeSteal(${i})">${p.n}</button>`;
@@ -561,22 +495,40 @@
                 document.getElementById('modal-content').innerHTML = html;
                 document.getElementById('modal').style.display='flex';
             }
-            else nextTurn(); // 確保無效格子也會跳下一位
+            else nextTurn();
         }
 
         function executeSteal(targetIdx) {
             document.getElementById('modal').style.display='none';
             let stolen = Math.floor(players[targetIdx].s * 0.2); 
-            players[targetIdx].s -= stolen;
-            players[turn].s += stolen;
+            players[targetIdx].s -= stolen; players[turn].s += stolen;
             alert(`😈 搶奪成功！\n從 ${players[targetIdx].n} 搶走了 ${stolen} 分！`);
             nextTurn();
+        }
+
+        // ★★★ 賭注階段 ★★★
+        function openWager() {
+            state = 'WAGER'; safeBroadcast();
+            currentMultiplier = 1;
+            let html = `<h1>🎲 機會命運</h1><p>這題你想下多少注？</p>
+            <div class="wager-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <button class="btn" style="background:var(--blue); color:white; padding:20px;" onclick="setWager(1)">🛡️ 一般 (20分)</button>
+                <button class="btn" style="background:var(--red); color:white; padding:20px;" onclick="setWager(2)">🔥 翻倍 (40分)</button>
+            </div>`;
+            document.getElementById('modal-content').innerHTML = html;
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function setWager(m) {
+            currentMultiplier = m;
+            openQuiz();
         }
 
         function openQuiz() {
             state = 'QUIZ'; safeBroadcast();
             currentQ = getNextQuestion();
-            let html = `<h2 style="color:#333">${currentQ.q}</h2><div style="text-align:left">`;
+            let pts = 20 * currentMultiplier;
+            let html = `<h3 style="color:#666">本題價值: ${pts} 分</h3><h2 style="color:#333">${currentQ.q}</h2><div style="text-align:left">`;
             currentQ.o.forEach((o, i) => {
                 html += `<div class="opt-row" onclick="checkAns(${i}, this)">${String.fromCharCode(65+i)}. ${o}</div>`;
             });
@@ -591,10 +543,11 @@
             if(!target) return;
             if(document.getElementById('next-btn').style.display === 'block') return;
 
+            let points = 20 * currentMultiplier;
             if(ans === currentQ.a) {
-                target.classList.add('correct'); players[turn].s += 10; playSfx('win');
+                target.classList.add('correct'); players[turn].s += points; playSfx('win');
             } else {
-                target.classList.add('wrong'); rows[currentQ.a].classList.add('correct'); players[turn].s -= 10; playSfx('fail');
+                target.classList.add('wrong'); rows[currentQ.a].classList.add('correct'); players[turn].s -= points; playSfx('fail');
             }
             document.getElementById('next-btn').style.display = 'block';
         }
@@ -607,15 +560,7 @@
 
         function victory(n) { confetti(); showModal("冠軍", `🏆 恭喜 ${n} 獲勝！`, false); }
         function closeModal() { document.getElementById('modal').style.display = 'none'; nextTurn(); }
-        
-        function nextTurn() { 
-            updateHUD(); 
-            turn = (turn + 1) % 4; // 強制順序
-            state = 'IDLE'; 
-            highlightTurn(); 
-            safeBroadcast(); 
-        }
-        
+        function nextTurn() { updateHUD(); turn = (turn + 1) % 4; state = 'IDLE'; highlightTurn(); safeBroadcast(); }
         function updateHUD() { for(let i=0; i<4; i++) document.getElementById(`s${i}`).innerText = players[i].s; }
     </script>
 </body>
