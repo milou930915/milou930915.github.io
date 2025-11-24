@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>高分子派對 (隨機賭命版)</title>
+    <title>高分子派對 (絕對防跳/互換版)</title>
     
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -33,6 +33,7 @@
             text-transform: uppercase; display: flex; align-items: center; justify-content: center; user-select: none;
         }
         .btn:active { transform: translateY(6px); box-shadow: 0 0 0 rgba(0,0,0,0.2); }
+        .btn:disabled { background-color: #bdc3c7 !important; color: #7f8c8d !important; transform: none !important; box-shadow: none !important; cursor: not-allowed; }
 
         /* 1. 起始頁 */
         #start-screen {
@@ -45,33 +46,25 @@
             font-size: 3rem; color: var(--blue); box-shadow: 0 10px 20px rgba(0,0,0,0.2); transform: rotate(-3deg);
             margin-bottom: 20px; text-align: center;
         }
-        
-        .role-btn {
-            width: 80%; max-width: 300px; padding: 20px; font-size: 1.5rem; color: white;
-            border-radius: 20px; box-shadow: 0 8px 0 rgba(0,0,0,0.2);
-        }
+        .role-btn { width: 80%; max-width: 300px; padding: 20px; font-size: 1.5rem; color: white; border-radius: 20px; box-shadow: 0 8px 0 rgba(0,0,0,0.2); }
         .input-group { display: flex; gap: 10px; width: 80%; max-width: 300px; }
-        #room-input {
-            flex: 1; padding: 15px; border-radius: 15px; border: none; font-size: 1.5rem; text-align: center;
-            outline: none; box-shadow: 0 4px 0 rgba(0,0,0,0.1); font-weight: bold; color: #555;
-        }
+        #room-input { flex: 1; padding: 15px; border-radius: 15px; border: none; font-size: 1.5rem; text-align: center; outline: none; box-shadow: 0 4px 0 rgba(0,0,0,0.1); font-weight: bold; color: #555; }
 
         /* 2. 電腦端介面 */
         #teacher-ui { display: none; width: 100%; height: 100%; flex-direction: column; position: relative; }
         
-        /* 順序條 */
+        /* 順序條 (目前回合指示器) */
         .turn-order-bar {
             display: flex; justify-content: center; gap: 15px; padding: 10px; background: rgba(255,255,255,0.9);
             box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 10;
         }
         .order-item {
-            padding: 5px 15px; border-radius: 20px; font-weight: bold; color: #ccc; border: 2px solid transparent; transition: 0.3s;
+            padding: 5px 15px; border-radius: 20px; font-weight: bold; color: #ccc; border: 3px solid transparent; transition: 0.3s; opacity: 0.5;
         }
         .order-item.active {
-            color: white; transform: scale(1.1); box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            color: white; transform: scale(1.15); box-shadow: 0 4px 15px rgba(0,0,0,0.2); opacity: 1; border-color: rgba(0,0,0,0.1);
         }
 
-        /* 老師等待大廳 */
         #host-lobby {
             position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
             z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;
@@ -85,7 +78,7 @@
         }
         .score-card {
             background: white; padding: 8px 20px; border-radius: 50px; font-size: 1.2rem; 
-            display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 0 #ddd; border: 3px solid transparent; transition: 0.3s; opacity: 0.5;
+            display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 0 #ddd; border: 3px solid transparent; transition: 0.3s; opacity: 0.6;
         }
         .score-card.active { 
             transform: scale(1.15) translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); 
@@ -107,6 +100,7 @@
         .cell.Finish { background: #FFD93D; color: #d35400; border: 3px solid #ff9f43;}
         .cell.Q { background: white; color: #888; border: 2px solid #eee; }
         .cell.Steal { background: #E1BEE7; color: #8E24AA; border: 2px solid #BA68C8; }
+        .cell.Swap { background: #B3E5FC; color: #0277BD; border: 2px solid #29B6F6; }
         .cell.Bankrupt { background: #263238; color: #fff; border: 2px solid #000; }
         .cell.Return { background: #FFCCBC; color: #D84315; border: 2px solid #FF5722; }
         .cell.Gift { background: #C8E6C9; color: #2E7D32; border: 2px solid #4CAF50; }
@@ -116,9 +110,9 @@
             width: 40px; height: 40px; border-radius: 50%; position: absolute; z-index: 10;
             background: white; border: 3px solid white; box-shadow: 0 5px 10px rgba(0,0,0,0.3);
             display: flex; justify-content: center; align-items: center; font-size: 1.5rem;
-            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer; opacity: 0.6;
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer; opacity: 0.5; filter: grayscale(0.5);
         }
-        .token.active-token { opacity: 1; transform: scale(1.2); animation: jump 1s infinite alternate; z-index: 20; box-shadow: 0 0 20px rgba(255,255,0,0.8); }
+        .token.active-token { opacity: 1; filter: grayscale(0); transform: scale(1.2); animation: jump 1s infinite alternate; z-index: 20; box-shadow: 0 0 20px rgba(255,255,0,0.8); border: 3px solid yellow; }
         @keyframes jump { from{transform: translateY(0) scale(1.2);} to{transform: translateY(-10px) scale(1.2);} }
 
         /* 3. 手機端介面 */
@@ -136,20 +130,16 @@
         /* 彈窗 */
         .modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 200; }
         .modal-card { background: white; width: 90%; max-width: 650px; padding: 30px; border-radius: 30px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); animation: bounceIn 0.4s; max-height: 90vh; overflow-y: auto;}
+        @keyframes bounceIn { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
         
         .opt-row { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 15px; text-align: left; font-size: 1.2rem; border: 3px solid transparent; cursor: pointer; transition: background 0.2s; }
         .opt-row.correct { background: #e8f5e9; border-color: var(--green); color: var(--green); font-weight: bold;}
         .opt-row.wrong { background: #ffebee; border-color: var(--red); color: var(--red); }
         
-        #next-btn { 
-            animation: pulseBtn 1s infinite; 
-            font-size: 1.5rem; padding: 15px; border-radius: 15px; width: 100%; margin-top: 20px;
-            background: var(--green); color: white; border: none; cursor: pointer; display: none;
-        }
+        #next-btn { animation: pulseBtn 1s infinite; font-size: 1.5rem; padding: 15px; border-radius: 15px; width: 100%; margin-top: 20px; background: var(--green); color: white; border: none; cursor: pointer; display: none; }
         @keyframes pulseBtn { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
         .turn-banner { position: absolute; top: 20%; width: 100%; text-align: center; font-size: 2.5rem; font-weight: bold; text-shadow: 0 2px 10px rgba(255,255,255,0.8); z-index: 15; background: rgba(255,255,255,0.7); padding: 5px 0; pointer-events: none; opacity: 0; transition: 0.5s; }
-        
         #conn-msg { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; flex-direction: column; align-items: center; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
     </style>
 </head>
@@ -164,19 +154,13 @@
         <button class="btn" style="background:#eee; color:#666; font-size:0.9rem; margin-top:20px; padding:10px 20px;" onclick="startOffline()">⚠️ 單機版</button>
     </div>
 
-    <div id="conn-msg">
-        <div style="font-size:3rem">🔄</div>
-        <h3>連線中...</h3>
-    </div>
+    <div id="conn-msg"><div style="font-size:3rem">🔄</div><h3>連線中...</h3></div>
 
     <div id="teacher-ui">
         <div class="turn-order-bar">
-            <div id="order-0" class="order-item" style="background:var(--red)">第一組</div>
-            <div style="align-self:center; color:#ccc">➜</div>
-            <div id="order-1" class="order-item" style="background:var(--blue)">第二組</div>
-            <div style="align-self:center; color:#ccc">➜</div>
-            <div id="order-2" class="order-item" style="background:var(--green)">第三組</div>
-            <div style="align-self:center; color:#ccc">➜</div>
+            <div id="order-0" class="order-item" style="background:var(--red)">第一組</div><div style="align-self:center">➜</div>
+            <div id="order-1" class="order-item" style="background:var(--blue)">第二組</div><div style="align-self:center">➜</div>
+            <div id="order-2" class="order-item" style="background:var(--green)">第三組</div><div style="align-self:center">➜</div>
             <div id="order-3" class="order-item" style="background:var(--yellow); color:#444">第五組</div>
         </div>
 
@@ -213,7 +197,7 @@
             <div id="pad-dice" style="display:none;"><button class="btn big-action-btn" onclick="sendCmd('ROLL')">🎲</button></div>
             
             <div id="pad-wager" style="display:none; width:100%; flex-direction:column; align-items:center;">
-                <h2 style="margin-bottom:20px;">🎲 機會命運</h2>
+                <h2 style="margin-bottom:20px;">要翻倍嗎？</h2>
                 <div class="pad-msg" id="wager-info" style="font-size:1.2rem; color:#555; margin-bottom:10px;">本題價值: ?? 分</div>
                 <div class="wager-grid">
                     <button class="btn" id="btn-wager-1" style="background:var(--blue); color:white; padding:20px; font-size:1.2rem;" onclick="sendCmd('WAGER', 1)">🛡️ 一般</button>
@@ -230,7 +214,7 @@
                 </div>
             </div>
             <div id="pad-target" style="display:none; width:100%; justify-content:center;">
-                <div class="pad-msg" style="font-size:1.5rem">請選擇搶奪對象</div>
+                <div class="pad-msg" style="font-size:1.5rem">請選擇對象</div>
                 <div class="target-grid" id="mobile-target-grid"></div>
             </div>
         </div>
@@ -239,8 +223,7 @@
     <div id="modal" class="modal-mask"><div class="modal-card"><div id="modal-content"></div></div></div>
 
     <script>
-        // === 設定 ===
-        const APP_PREFIX = "poly-party-2025-"; 
+        const APP_PREFIX = "poly-party-2025-v4-"; 
         const peerConfig = { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } };
         
         const allQuestions = [
@@ -290,8 +273,10 @@
         ];
         const mapSize = 50; const cols = 10;
         let mapCells = [];
-        let lastReceivedState = {turn: 0, state: 'IDLE', baseScore: 20};
+        let lastReceivedState = {turn: 0, state: 'IDLE'};
         let audioCtx; 
+        // ★★★ 核彈級防跳機制：鎖死旗標 ★★★
+        let isSwitchingTurn = false; // 如果為 true，絕對禁止再次切換
 
         // === 初始化 ===
         window.onload = function() { 
@@ -327,9 +312,10 @@
             let types = [];
             for(let i=0; i<35; i++) types.push("Q");
             for(let i=0; i<5; i++) types.push("Steal"); 
+            for(let i=0; i<3; i++) types.push("Swap"); // 互換
             for(let i=0; i<3; i++) types.push("Gift");
             for(let i=0; i<2; i++) types.push("Return");
-            for(let i=0; i<3; i++) types.push("Bankrupt");
+            for(let i=0; i<2; i++) types.push("Bankrupt");
             for (let i = types.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [types[i], types[j]] = [types[j], types[i]]; }
             mapCells = new Array(mapSize); mapCells[0] = "Start"; mapCells[mapSize-1] = "Finish";
             for(let i=1; i<mapSize-1; i++) { mapCells[i] = types[i-1] || "Q"; }
@@ -351,10 +337,13 @@
                     setTimeout(() => { if(c.open) c.send({type:'STATE', turn:turn, state:state, baseScore:currentBaseScore}); }, 500);
                     c.on('data', d => {
                         if(d.team !== turn) return; 
+                        // 這裡也加鎖
+                        if(isSwitchingTurn) return;
+
                         if(d.cmd === 'ROLL' && state === 'IDLE') rollDice();
                         if(d.cmd === 'WAGER' && state === 'WAGER') setWager(d.val);
                         if(d.cmd === 'ANS' && state === 'QUIZ') checkAns(d.val);
-                        if(d.cmd === 'TARGET' && state === 'SELECT_TARGET') executeSteal(d.val);
+                        if(d.cmd === 'TARGET' && state === 'SELECT_TARGET') executeSpecial(d.val, d.action);
                     });
                 });
             } catch(e) { alert("不支援 WebRTC"); }
@@ -397,7 +386,7 @@
             if(lastReceivedState) updatePad(lastReceivedState);
         }
 
-        function sendCmd(cmd, val) { if(conn && conn.open) { conn.send({cmd, val, team:myTeam}); vibe(50); } }
+        function sendCmd(cmd, val, action) { if(conn && conn.open) { conn.send({cmd, val, action, team:myTeam}); vibe(50); } }
 
         function updatePad(data) {
             let isMyTurn = (data.turn === myTeam);
@@ -414,7 +403,6 @@
                 } else if (data.state === 'WAGER') {
                     status.innerText = "👉 下注時間"; 
                     document.getElementById('pad-wager').style.display = 'flex';
-                    // 更新手機端按鈕文字
                     document.getElementById('wager-info').innerText = `本題價值: ${data.baseScore} 分`;
                     document.getElementById('btn-wager-1').innerHTML = `🛡️ 一般<br>(${data.baseScore}分)`;
                     document.getElementById('btn-wager-2').innerHTML = `🔥 翻倍<br>(${data.baseScore*2}分)`;
@@ -422,14 +410,14 @@
                     status.innerText = "👉 請作答！"; document.getElementById('pad-quiz').style.display = 'flex';
                 } else if (data.state === 'SELECT_TARGET') {
                     document.getElementById('pad-target').style.display = 'flex';
-                    renderMobileTargets();
+                    renderMobileTargets('steal'); // 預設是 steal，swap 會在 cmd 區分
                 } else status.innerText = "看大螢幕...";
             } else {
                 status.style.color = "#888"; status.innerText = `等待 ${players[data.turn].n}...`;
             }
         }
         
-        function renderMobileTargets() {
+        function renderMobileTargets(type) {
              let grid = document.getElementById('mobile-target-grid');
              grid.innerHTML = '';
              players.forEach((p,i) => {
@@ -438,8 +426,10 @@
                      btn.className = 'btn';
                      btn.style.background = p.c;
                      btn.style.color = 'white';
-                     btn.innerText = `搶 ${p.n}`;
-                     btn.onclick = () => sendCmd('TARGET', i);
+                     btn.innerText = `選 ${p.n}`;
+                     // 這裡要傳送目前的 action
+                     let currentAction = (state==='SELECT_TARGET' && mapCells[players[turn].p] === 'Swap') ? 'swap' : 'steal';
+                     btn.onclick = () => sendCmd('TARGET', i, currentAction);
                      grid.appendChild(btn);
                  }
              });
@@ -453,6 +443,7 @@
                 if(mapCells[i]==='Start') d.innerText = "🚀";
                 else if(mapCells[i]==='Finish') d.innerText = "🏆";
                 else if(mapCells[i]==='Steal') d.innerText = "😈";
+                else if(mapCells[i]==='Swap') d.innerText = "🔄";
                 else if(mapCells[i]==='Bankrupt') d.innerText = "💸";
                 else if(mapCells[i]==='Return') d.innerText = "🏠";
                 else if(mapCells[i]==='Gift') d.innerText = "🎁";
@@ -472,7 +463,7 @@
                 token = document.createElement('div'); token.className = 'token'; 
                 token.innerText = ["🐯","🐳","🐸","🦁"][pid]; 
                 token.style.color=p.c; token.style.borderColor=p.c; token.id=`t-${pid}`;
-                token.onclick = () => { if(state==='IDLE' && turn===pid && confirm(`幫 ${p.n} 擲骰子？`)) rollDice(); };
+                token.onclick = () => { if(state==='IDLE' && turn===pid && !isSwitchingTurn && confirm(`幫 ${p.n} 擲骰子？`)) rollDice(); };
             }
             if(cell) cell.appendChild(token);
         }
@@ -483,11 +474,9 @@
             document.querySelectorAll('.token').forEach(t => t.classList.remove('active-token'));
             let ct = document.getElementById(`t-${turn}`); if(ct) ct.classList.add('active-token');
             
-            // 更新上方順序條
             for(let i=0; i<4; i++) document.getElementById(`order-${i}`).classList.remove('active');
             document.getElementById(`order-${turn}`).classList.add('active');
 
-            // Banner
             let banner = document.getElementById('turn-banner');
             banner.innerText = `輪到：${players[turn].n}`; 
             banner.style.color = players[turn].c;
@@ -496,6 +485,7 @@
         }
 
         function rollDice() {
+            if(isSwitchingTurn) return; // 防跳保護
             state = 'MOVING'; safeBroadcast(); playSfx('roll');
             setTimeout(() => {
                 let steps = Math.floor(Math.random()*6)+1;
@@ -517,15 +507,25 @@
 
         function checkEvent(pos) {
             let t = mapCells[pos];
-            if(t==='Q') openWager(); // 先下注
+            if(t==='Q') openWager(); 
             else if(t==='Gift') showModal("🎁 天降好禮", "恭喜獲得 30 分！", true, ()=>{players[turn].s+=30; nextTurn();});
             else if(t==='Return') showModal("🏠 慘遭退貨", "回到原點重新開始！", true, ()=>{players[turn].p=0; updateTokenPos(turn,0); nextTurn();});
             else if(t==='Bankrupt') showModal("💸 破產啦", "分數全部歸零！(幫QQ)", true, ()=>{players[turn].s=0; nextTurn();});
             else if(t==='Steal') {
                 state = 'SELECT_TARGET'; safeBroadcast();
-                let html = `<h1>😈 選擇搶奪對象</h1><p>請選擇一組搶走 20% 分數：</p><div class="target-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">`;
+                let html = `<h1>😈 隨機搶奪</h1><p>請選擇一個對象 (隨機搶 10%~100%)：</p><div class="target-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">`;
                 players.forEach((p,i) => {
-                    if(i!==turn) html += `<button class="btn" style="background:${p.c}; color:white; padding:15px;" onclick="executeSteal(${i})">${p.n}</button>`;
+                    if(i!==turn) html += `<button class="btn" style="background:${p.c}; color:white; padding:15px;" onclick="executeSpecial(${i}, 'steal')">${p.n}</button>`;
+                });
+                html += `</div>`;
+                document.getElementById('modal-content').innerHTML = html;
+                document.getElementById('modal').style.display='flex';
+            }
+            else if(t==='Swap') {
+                state = 'SELECT_TARGET'; safeBroadcast();
+                let html = `<h1>🔄 靈魂交換</h1><p>請選擇一個對象交換分數：</p><div class="target-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">`;
+                players.forEach((p,i) => {
+                    if(i!==turn) html += `<button class="btn" style="background:${p.c}; color:white; padding:15px;" onclick="executeSpecial(${i}, 'swap')">${p.n}</button>`;
                 });
                 html += `</div>`;
                 document.getElementById('modal-content').innerHTML = html;
@@ -534,18 +534,31 @@
             else nextTurn();
         }
 
-        function executeSteal(targetIdx) {
+        function executeSpecial(targetIdx, action) {
+            if(isSwitchingTurn) return; // 再次保護
             document.getElementById('modal').style.display='none';
-            let stolen = Math.floor(players[targetIdx].s * 0.2); 
-            players[targetIdx].s -= stolen; players[turn].s += stolen;
-            alert(`😈 搶奪成功！\n從 ${players[targetIdx].n} 搶走了 ${stolen} 分！`);
+            
+            // 防止手機端沒傳 action，根據格子再次判斷
+            if(!action) action = mapCells[players[turn].p] === 'Swap' ? 'swap' : 'steal';
+
+            if(action === 'steal') {
+                // 隨機 10% - 100%
+                let percent = Math.floor(Math.random() * 91) + 10; 
+                let stolen = Math.floor(players[targetIdx].s * (percent/100)); 
+                if(players[targetIdx].s <= 0) stolen = 0;
+                players[targetIdx].s -= stolen; players[turn].s += stolen;
+                alert(`😈 搶奪成功 (${percent}%)！\n從 ${players[targetIdx].n} 搶走了 ${stolen} 分！`);
+            } else if (action === 'swap') {
+                let temp = players[turn].s;
+                players[turn].s = players[targetIdx].s;
+                players[targetIdx].s = temp;
+                alert(`🔄 交換成功！\n你現在的分數是 ${players[turn].s} 分！`);
+            }
             nextTurn();
         }
 
-        // ★★★ 隨機分數與賭注 ★★★
         function openWager() {
             state = 'WAGER'; 
-            // 隨機生成 10, 20, 30, 40, 50
             currentBaseScore = (Math.floor(Math.random() * 5) + 1) * 10;
             currentMultiplier = 1;
             safeBroadcast();
@@ -554,14 +567,15 @@
             <p>本題價值 <b style="color:var(--blue); font-size:2rem;">${currentBaseScore} 分</b></p>
             <p>你要下多少注？</p>
             <div class="wager-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                <button class="btn" style="background:var(--blue); color:white; padding:20px;" onclick="setWager(1)">🛡️ 一般 (${currentBaseScore}分)</button>
-                <button class="btn" style="background:var(--red); color:white; padding:20px;" onclick="setWager(2)">🔥 翻倍 (${currentBaseScore*2}分)</button>
+                <button class="btn" style="background:var(--blue); color:white; padding:20px;" onclick="setWager(1, this)">🛡️ 一般 (${currentBaseScore}分)</button>
+                <button class="btn" style="background:var(--red); color:white; padding:20px;" onclick="setWager(2, this)">🔥 翻倍 (${currentBaseScore*2}分)</button>
             </div>`;
             document.getElementById('modal-content').innerHTML = html;
             document.getElementById('modal').style.display = 'flex';
         }
 
-        function setWager(m) {
+        function setWager(m, btn) {
+            if(btn) btn.disabled = true;
             currentMultiplier = m;
             openQuiz();
         }
@@ -574,7 +588,7 @@
             currentQ.o.forEach((o, i) => {
                 html += `<div class="opt-row" onclick="checkAns(${i}, this)">${String.fromCharCode(65+i)}. ${o}</div>`;
             });
-            html += `</div><button id="next-btn" onclick="closeModal()">下一位 (老師請按我)</button>`;
+            html += `</div><button id="next-btn" onclick="finishQuiz(this)">下一位 (老師請按我)</button>`;
             document.getElementById('modal-content').innerHTML = html;
             document.getElementById('modal').style.display = 'flex';
         }
@@ -594,15 +608,45 @@
             document.getElementById('next-btn').style.display = 'block';
         }
 
+        function finishQuiz(btn) {
+            if(btn) btn.disabled = true;
+            document.getElementById('modal').style.display = 'none';
+            nextTurn();
+        }
+
         function showModal(t, m, btn, cb) {
             document.getElementById('modal-content').innerHTML = `<h1>${t}</h1><p>${m}</p>${btn?`<button class="btn" style="background:var(--blue); color:white; width:100%; padding:10px;" id="ok-btn">確定</button>`:''}`;
             document.getElementById('modal').style.display = 'flex';
-            if(btn) document.getElementById('ok-btn').onclick = () => { closeModal(); cb(); };
+            if(btn) document.getElementById('ok-btn').onclick = function() { 
+                this.disabled = true;
+                document.getElementById('modal').style.display = 'none'; 
+                if(cb) cb(); 
+            };
         }
 
         function victory(n) { confetti(); showModal("冠軍", `🏆 恭喜 ${n} 獲勝！`, false); }
-        function closeModal() { document.getElementById('modal').style.display = 'none'; nextTurn(); }
-        function nextTurn() { updateHUD(); turn = (turn + 1) % 4; state = 'IDLE'; highlightTurn(); safeBroadcast(); }
+        
+        // ★★★ 核心防跳機制 ★★★
+        function nextTurn() { 
+            if(isSwitchingTurn) {
+                console.log("⛔ 攔截重複跳號");
+                return; // 嚴格禁止連續進入
+            }
+            isSwitchingTurn = true; // 1. 上鎖
+
+            updateHUD(); 
+            turn = (turn + 1) % 4; // 2. 變更回合
+            state = 'IDLE'; 
+            highlightTurn(); 
+            safeBroadcast(); 
+
+            // 3. 延遲解鎖 (給動畫和網路一點時間)
+            setTimeout(() => {
+                isSwitchingTurn = false;
+                console.log("✅ 解鎖下一回合");
+            }, 1500);
+        }
+        
         function updateHUD() { for(let i=0; i<4; i++) document.getElementById(`s${i}`).innerText = players[i].s; }
     </script>
 </body>
