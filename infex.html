@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>高分子派對 (絕對防跳版)</title>
+    
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Varela+Round&display=swap" rel="stylesheet">
+    
+    <style>
+        /* === 🎨 風格設定 === */
+        :root {
+            --bg-color: #E0F7FA;
+            --red: #FF6B6B;   /* 第一組 */
+            --blue: #4D96FF;  /* 第二組 */
+            --green: #6BCB77; /* 第三組 */
+            --yellow: #FFD93D;/* 第五組 */
+            --text-color: #444;
+        }
+
+        body {
+            font-family: 'Varela Round', sans-serif; margin: 0; background-color: var(--bg-color);
+            background-image: radial-gradient(#B2EBF2 15%, transparent 16%), radial-gradient(#B2EBF2 15%, transparent 16%);
+            background-size: 60px 60px; background-position: 0 0, 30px 30px;
+            color: var(--text-color); overflow: hidden; height: 100vh; display: flex; flex-direction: column;
+        }
+
+        .btn {
+            border: none; outline: none; cursor: pointer; font-family: 'Varela Round', sans-serif; font-weight: bold;
+            border-radius: 20px; transition: all 0.1s; box-shadow: 0 6px 0 rgba(0,0,0,0.2);
+            text-transform: uppercase; display: flex; align-items: center; justify-content: center; user-select: none;
+        }
+        .btn:active { transform: translateY(6px); box-shadow: 0 0 0 rgba(0,0,0,0.2); }
+        /* 按鈕被禁用時的樣式 */
+        .btn:disabled { background-color: #ccc !important; color: #666 !important; transform: none !important; box-shadow: none !important; cursor: not-allowed; }
+
+        /* 1. 起始頁 */
+        #start-screen {
+            position: absolute; width: 100%; height: 100%; z-index: 100;
+            background: linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+        }
+        .logo {
+            background: white; padding: 20px 40px; border-radius: 30px;
+            font-size: 3rem; color: var(--blue); box-shadow: 0 10px 20px rgba(0,0,0,0.2); transform: rotate(-3deg);
+            margin-bottom: 20px; text-align: center;
+        }
+        
+        .role-btn {
+            width: 80%; max-width: 300px; padding: 20px; font-size: 1.5rem; color: white;
+            border-radius: 20px; box-shadow: 0 8px 0 rgba(0,0,0,0.2);
+        }
+        .input-group { display: flex; gap: 10px; width: 80%; max-width: 300px; }
+        #room-input {
+            flex: 1; padding: 15px; border-radius: 15px; border: none; font-size: 1.5rem; text-align: center;
+            outline: none; box-shadow: 0 4px 0 rgba(0,0,0,0.1); font-weight: bold; color: #555;
+        }
+
+        /* 2. 電腦端介面 */
+        #teacher-ui { display: none; width: 100%; height: 100%; flex-direction: column; position: relative; }
+        
+        /* 順序條 */
+        .turn-order-bar {
+            display: flex; justify-content: center; gap: 15px; padding: 10px; background: rgba(255,255,255,0.9);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 10;
+        }
+        .order-item {
+            padding: 5px 15px; border-radius: 20px; font-weight: bold; color: #ccc; border: 2px solid transparent; transition: 0.3s;
+        }
+        .order-item.active {
+            color: white; transform: scale(1.1); box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        /* 老師等待大廳 */
+        #host-lobby {
+            position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
+            z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;
+        }
+        .room-code-display { font-size: 6rem; font-weight: bold; color: var(--yellow); letter-spacing: 5px; margin: 20px 0; text-shadow: 0 0 20px rgba(255, 217, 61, 0.5); }
+        .lobby-info { font-size: 1.5rem; margin-bottom: 40px; color: #ddd; }
+
+        .hud {
+            height: 12%; display: flex; justify-content: center; gap: 20px; align-items: center;
+            background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); padding: 0 10px;
+        }
+        .score-card {
+            background: white; padding: 8px 20px; border-radius: 50px; font-size: 1.2rem; 
+            display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 0 #ddd; border: 3px solid transparent; transition: 0.3s; opacity: 0.5;
+        }
+        .score-card.active { 
+            transform: scale(1.15) translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); 
+            border-color: currentColor; opacity: 1; font-weight: bold;
+        }
+
+        .board-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 10px; position: relative; }
+        .board {
+            display: grid; grid-template-columns: repeat(10, 1fr); grid-template-rows: repeat(5, 1fr);
+            gap: 5px; width: 95%; height: 85%; max-width: 1400px;
+        }
+
+        /* 格子樣式 */
+        .cell {
+            background: white; border-radius: 10px; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-size: 1.2rem; font-weight: bold; color: #ddd; box-shadow: 0 4px 0 #cbd5e1; position: relative; border: 2px solid #ecf0f1;
+        }
+        .cell.Start { background: #FFD3B6; color: #ff6b6b; border: none;}
+        .cell.Finish { background: #FFD93D; color: #d35400; border: 3px solid #ff9f43;}
+        .cell.Q { background: white; color: #888; border: 2px solid #eee; }
+        .cell.Steal { background: #E1BEE7; color: #8E24AA; border: 2px solid #BA68C8; }
+        .cell.Bankrupt { background: #263238; color: #fff; border: 2px solid #000; }
+        .cell.Return { background: #FFCCBC; color: #D84315; border: 2px solid #FF5722; }
+        .cell.Gift { background: #C8E6C9; color: #2E7D32; border: 2px solid #4CAF50; }
+        
+        /* 棋子 */
+        .token {
+            width: 40px; height: 40px; border-radius: 50%; position: absolute; z-index: 10;
+            background: white; border: 3px solid white; box-shadow: 0 5px 10px rgba(0,0,0,0.3);
+            display: flex; justify-content: center; align-items: center; font-size: 1.5rem;
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer; opacity: 0.6;
+        }
+        .token.active-token { opacity: 1; transform: scale(1.2); animation: jump 1s infinite alternate; z-index: 20; box-shadow: 0 0 20px rgba(255,255,0,0.8); }
+        @keyframes jump { from{transform: translateY(0) scale(1.2);} to{transform: translateY(-10px) scale(1.2);} }
+
+        /* 3. 手機端介面 */
+        #student-ui { display: none; width: 100%; height: 100%; flex-direction: column; background: #f0f2f5; }
+        .mobile-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        .team-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; }
+        .pad-msg { font-size: 2rem; color: #333; margin-bottom: 30px; font-weight: bold; text-align:center;}
+        .big-action-btn { width: 250px; height: 250px; border-radius: 50%; font-size: 3rem; background: var(--yellow); color: #8a6d0b; box-shadow: 0 15px 0 #d4b106; }
+        .big-action-btn:active { transform: translateY(15px); box-shadow: 0 0 0 #d4b106; }
+        .ans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 400px; }
+        .ans-btn { height: 80px; font-size: 1.5rem; color: white; border-radius: 20px; }
+        .target-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 400px; }
+        .wager-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 500px; }
+
+        /* 彈窗 */
+        .modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 200; }
+        .modal-card { background: white; width: 90%; max-width: 650px; padding: 30px; border-radius: 30px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); animation: bounceIn 0.4s; max-height: 90vh; overflow-y: auto;}
+        @keyframes bounceIn { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+        
+        .opt-row { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 15px; text-align: left; font-size: 1.2rem; border: 3px solid transparent; cursor: pointer; transition: background 0.2s; }
+        .opt-row.correct { background: #e8f5e9; border-color: var(--green); color: var(--green); font-weight: bold;}
+        .opt-row.wrong { background: #ffebee; border-color: var(--red); color: var(--red); }
+        
+        /* 閃爍按鈕 */
+        #next-btn { 
+            animation: pulseBtn 1s infinite; 
+            font-size: 1.5rem; padding: 15px; border-radius: 15px; width: 100%; margin-top: 20px;
+            background: var(--green); color: white; border: none; cursor: pointer; display: none;
+        }
+        @keyframes pulseBtn { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        .turn-banner { position: absolute; top: 20%; width: 100%; text-align: center; font-size: 2.5rem; font-weight: bold; text-shadow: 0 2px 10px rgba(255,255,255,0.8); z-index: 15; background: rgba(255,255,255,0.7); padding: 5px 0; pointer-events: none; opacity: 0; transition: 0.5s; }
+        
+        #conn-msg { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; flex-direction: column; align-items: center; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <div class="logo">🧪 高分子派對</div>
+        <button class="btn role-btn" style="background:var(--blue);" onclick="startTeacher()">💻 我是電腦 (Host)</button>
+        <div style="width:80%; height:1px; background:#aaa; margin:20px 0;"></div>
+        <div class="input-group"><input type="tel" id="room-input" placeholder="輸入房間號碼" maxlength="4"></div>
+        <button class="btn role-btn" style="background:white; color:var(--blue);" onclick="startStudent()">📱 手機加入</button>
+        <button class="btn" style="background:#eee; color:#666; font-size:0.9rem; margin-top:20px; padding:10px 20px;" onclick="startOffline()">⚠️ 單機版</button>
+    </div>
+
+    <div id="conn-msg">
+        <div style="font-size:3rem">🔄</div>
+        <h3>連線中...</h3>
+    </div>
+
+    <div id="teacher-ui">
+        <div class="turn-order-bar">
+            <div id="order-0" class="order-item" style="background:var(--red)">第一組</div>
+            <div style="align-self:center; color:#ccc">➜</div>
+            <div id="order-1" class="order-item" style="background:var(--blue)">第二組</div>
+            <div style="align-self:center; color:#ccc">➜</div>
+            <div id="order-2" class="order-item" style="background:var(--green)">第三組</div>
+            <div style="align-self:center; color:#ccc">➜</div>
+            <div id="order-3" class="order-item" style="background:var(--yellow); color:#444">第五組</div>
+        </div>
+
+        <div id="host-lobby">
+            <h2 style="margin:0; opacity:0.8;">請學生輸入房間號碼</h2>
+            <div id="lobby-code" class="room-code-display">----</div>
+            <div class="lobby-info" id="lobby-status">目前連線: 0</div>
+            <button class="btn" style="background:var(--green); color:white; padding: 20px 60px; font-size: 2rem;" onclick="closeLobby()">🚀 開始遊戲</button>
+        </div>
+
+        <div id="turn-banner" class="turn-banner">準備開始...</div>
+
+        <div class="hud">
+            <div id="card-0" class="score-card" style="color:var(--red)"><span>🐯 第一組</span> <span id="s0">0</span></div>
+            <div id="card-1" class="score-card" style="color:var(--blue)"><span>🐳 第二組</span> <span id="s1">0</span></div>
+            <div id="card-2" class="score-card" style="color:var(--green)"><span>🐸 第三組</span> <span id="s2">0</span></div>
+            <div id="card-3" class="score-card" style="color:var(--yellow)"><span>🦁 第五組</span> <span id="s3">0</span></div>
+        </div>
+        <div class="board-container"><div class="board" id="board"></div></div>
+    </div>
+
+    <div id="student-ui">
+        <div id="team-select" class="mobile-center">
+            <h2 style="color:var(--blue); margin-top:0;">請選擇組別</h2>
+            <div class="team-grid">
+                <button class="btn" style="background:var(--red); color:white; padding:30px;" onclick="joinGame(0)">🐯 第一組</button>
+                <button class="btn" style="background:var(--blue); color:white; padding:30px;" onclick="joinGame(1)">🐳 第二組</button>
+                <button class="btn" style="background:var(--green); color:white; padding:30px;" onclick="joinGame(2)">🐸 第三組</button>
+                <button class="btn" style="background:var(--yellow); color:black; padding:30px;" onclick="joinGame(3)">🦁 第五組</button>
+            </div>
+        </div>
+        <div id="pad-screen" class="mobile-center" style="display:none;">
+            <div id="pad-msg" class="pad-msg">等待中...</div>
+            <div id="pad-dice" style="display:none;"><button class="btn big-action-btn" onclick="sendCmd('ROLL')">🎲</button></div>
+            
+            <div id="pad-wager" style="display:none; width:100%; flex-direction:column; align-items:center;">
+                <h2 style="margin-bottom:20px;">要翻倍嗎？</h2>
+                <div class="pad-msg" id="wager-info" style="font-size:1.2rem; color:#555; margin-bottom:10px;">本題價值: ?? 分</div>
+                <div class="wager-grid">
+                    <button class="btn" id="btn-wager-1" style="background:var(--blue); color:white; padding:20px; font-size:1.2rem;" onclick="sendCmd('WAGER', 1)">🛡️ 一般</button>
+                    <button class="btn" id="btn-wager-2" style="background:var(--red); color:white; padding:20px; font-size:1.2rem;" onclick="sendCmd('WAGER', 2)">🔥 翻倍</button>
+                </div>
+            </div>
+
+            <div id="pad-quiz" style="display:none; width:100%; justify-content:center;">
+                <div class="ans-grid">
+                    <button class="btn ans-btn" style="background:var(--red)" onclick="sendCmd('ANS',0)">A</button>
+                    <button class="btn ans-btn" style="background:var(--blue)" onclick="sendCmd('ANS',1)">B</button>
+                    <button class="btn ans-btn" style="background:var(--green)" onclick="sendCmd('ANS',2)">C</button>
+                    <button class="btn ans-btn" style="background:var(--yellow); color:black" onclick="sendCmd('ANS',3)">D</button>
+                </div>
+            </div>
+            <div id="pad-target" style="display:none; width:100%; justify-content:center;">
+                <div class="pad-msg" style="font-size:1.5rem">請選擇搶奪對象</div>
+                <div class="target-grid" id="mobile-target-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal" class="modal-mask"><div class="modal-card"><div id="modal-content"></div></div></div>
+
+    <script>
+        // === 設定 ===
+        const APP_PREFIX = "poly-party-2025-"; 
+        const peerConfig = { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } };
+        
+        const allQuestions = [
+            {q:"1.高分子的分子結構一般是？", o:["很小原子", "長鏈狀", "金屬排列", "氣體分子"], a:1},
+            {q:"2.下列何者是「熱固性塑膠」？", o:["膠帶", "保麗龍", "酚醛樹脂", "寶特瓶"], a:2},
+            {q:"3.最常拿來做「透明薄膜」？", o:["PE", "PS", "PP", "PVC"], a:3},
+            {q:"4.可以自然分解的高分子？", o:["PLA", "PS", "PVC", "PE"], a:0},
+            {q:"5.下列哪項是天然高分子？", o:["蛋白質", "玻璃", "石頭", "氣體"], a:0},
+            {q:"6.高分子最基本結構單元？", o:["單體", "聚合物", "寡聚物", "重複單元"], a:0},
+            {q:"7.提升結晶度的因素？", o:["增加支鏈", "降低規則性", "線性結構", "共聚比例"], a:2},
+            {q:"8.「聚合」的意思是？", o:["分裂", "連接起來", "分解", "蒸發"], a:1},
+            {q:"9.加熱後可重複熔化？", o:["熱固性", "熔岩", "熱塑性", "石頭"], a:2},
+            {q:"10.鏈越長，分子量通常？", o:["不變", "變小", "變大", "隨便"], a:2},
+            {q:"11.高分子用途不包括？", o:["包裝", "建築", "電子", "金屬製品"], a:3},
+            {q:"12.天然來源提取的高分子？", o:["PE", "PS", "PLA", "纖維素"], a:3},
+            {q:"13.物理性質不受何者影響？", o:["溫度", "分子量", "結構", "顏色"], a:3},
+            {q:"14.PE 氫被氯取代後變成？", o:["PP", "PS", "PVC", "PET"], a:2},
+            {q:"15.複合材料設計目的？", o:["降成本", "降分子量", "結合特性", "限制性能"], a:2},
+            {q:"16.熱固性高分子描述？", o:["重複熔融", "軟化", "天然", "不可再熔"], a:3},
+            {q:"17.天然高分子是？", o:["ABS", "尼龍", "纖維素", "PS"], a:2},
+            {q:"18.PE 的單體是？", o:["乙烯", "苯", "氨", "氯化鈉"], a:0},
+            {q:"19.高分子的「高」是指？", o:["密度", "電導率", "分子量", "熔點"], a:2},
+            {q:"20.由丙烯單體製成？", o:["PP", "PE", "PVC", "PS"], a:0},
+            {q:"21.熱塑性塑膠例子？", o:["環氧樹脂", "聚碳酸酯", "酚醛", "聚氨酯"], a:1},
+            {q:"22.強度通常與何有關？", o:["分子量", "顏色", "形狀", "氣味"], a:0},
+            {q:"23.非熱塑性特性？", o:["重複成型", "不可逆交聯", "范德華力", "常見PE"], a:1},
+            {q:"24.加成聚合反應？", o:["PLA", "尼龍", "聚苯乙烯", "聚氨酯"], a:2},
+            {q:"25.結晶區比例越高？", o:["透明", "密度低", "強度高", "Tg增加"], a:2},
+            {q:"26.生物可降解聚合物？", o:["PS", "PLA", "PVC", "PE"], a:1},
+            {q:"27.分子量分布變寬？", o:["活性聚合", "時間短", "控制精確", "鏈轉移"], a:3},
+            {q:"28.聚合度增加時？", o:["分子量增", "分子量減", "變金屬", "變透明"], a:0},
+            {q:"29.黏度高的主因？", o:["鏈段纏結", "流動快", "氣態", "無作用力"], a:0},
+            {q:"30.熱塑性特性？", o:["不易回收", "結構穩定", "交聯", "重複熔融"], a:3},
+            {q:"31.縮合聚合反應？", o:["PP", "PVC", "PET", "PE"], a:2},
+            {q:"32.熱變形溫度有關？", o:["分子量", "結晶度", "顏色", "形狀"], a:1},
+            {q:"33.熱固性例子？", o:["環氧樹脂", "聚氨酯", "PP", "PE"], a:0},
+            {q:"34.耐熱性有關？", o:["分子結構", "顏色", "形狀", "氣味"], a:0},
+            {q:"35.合成高分子例子？", o:["蛋白質", "天然橡膠", "PVC", "纖維素"], a:2}
+        ];
+        
+        let questionPool = [];
+        let peer, conn, myTeam = -1, turn = 0, state = "IDLE", currentQ = null, currentMultiplier = 1, currentBaseScore = 20;
+        let connections = [];
+        let players = [
+            {n:"第一組", c:"var(--red)", p:0, s:0}, {n:"第二組", c:"var(--blue)", p:0, s:0},
+            {n:"第三組", c:"var(--green)", p:0, s:0}, {n:"第五組", c:"var(--yellow)", p:0, s:0}
+        ];
+        const mapSize = 50; const cols = 10;
+        let mapCells = [];
+        let lastReceivedState = {turn: 0, state: 'IDLE'};
+        let audioCtx; 
+        // ★★★ 關鍵變數：最後一次執行 nextTurn 的時間 ★★★
+        let lastTurnTime = 0;
+
+        // === 初始化 ===
+        window.onload = function() { 
+            try { shuffleQuestions(); initMap(); renderBoard(); } catch(e) {}
+        };
+
+        function initAudio() {
+            try { if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if(audioCtx.state === 'suspended') audioCtx.resume(); } catch(e) {}
+        }
+
+        function playSfx(name) {
+            try {
+                if(!audioCtx) initAudio(); if(!audioCtx) return;
+                const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
+                osc.connect(g); g.connect(audioCtx.destination);
+                if(name==='roll'){osc.type='triangle';osc.frequency.setValueAtTime(200,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.2);osc.start();osc.stop(audioCtx.currentTime+0.2);}
+                if(name==='win'){osc.type='sine';osc.frequency.setValueAtTime(400,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.5);osc.start();osc.stop(audioCtx.currentTime+0.5);}
+                if(name==='fail'){osc.type='sawtooth';osc.frequency.setValueAtTime(100,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.4);osc.start();osc.stop(audioCtx.currentTime+0.4);}
+            } catch(e) {}
+        }
+        function vibe(p) { if(navigator.vibrate) navigator.vibrate(p); }
+
+        function shuffleQuestions() {
+            questionPool = [...allQuestions];
+            for (let i = questionPool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [questionPool[i], questionPool[j]] = [questionPool[j], questionPool[i]];
+            }
+        }
+        function getNextQuestion() { if(questionPool.length === 0) shuffleQuestions(); return questionPool.pop(); }
+
+        function initMap() {
+            let types = [];
+            for(let i=0; i<35; i++) types.push("Q");
+            for(let i=0; i<5; i++) types.push("Steal"); 
+            for(let i=0; i<3; i++) types.push("Gift");
+            for(let i=0; i<2; i++) types.push("Return");
+            for(let i=0; i<3; i++) types.push("Bankrupt");
+            for (let i = types.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [types[i], types[j]] = [types[j], types[i]]; }
+            mapCells = new Array(mapSize); mapCells[0] = "Start"; mapCells[mapSize-1] = "Finish";
+            for(let i=1; i<mapSize-1; i++) { mapCells[i] = types[i-1] || "Q"; }
+        }
+
+        // === Host ===
+        function startTeacher() {
+            initAudio();
+            const roomCode = Math.floor(1000 + Math.random() * 9000);
+            const peerId = APP_PREFIX + roomCode;
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('teacher-ui').style.display = 'flex';
+            document.getElementById('lobby-code').innerText = roomCode;
+            try {
+                peer = new Peer(peerId, peerConfig);
+                peer.on('connection', c => {
+                    connections.push(c);
+                    document.getElementById('lobby-status').innerText = `目前連線: ${connections.length}`;
+                    setTimeout(() => { if(c.open) c.send({type:'STATE', turn:turn, state:state, baseScore:currentBaseScore}); }, 500);
+                    c.on('data', d => {
+                        if(d.team !== turn) return; 
+                        if(d.cmd === 'ROLL' && state === 'IDLE') rollDice();
+                        if(d.cmd === 'WAGER' && state === 'WAGER') setWager(d.val);
+                        if(d.cmd === 'ANS' && state === 'QUIZ') checkAns(d.val);
+                        if(d.cmd === 'TARGET' && state === 'SELECT_TARGET') executeSteal(d.val);
+                    });
+                });
+            } catch(e) { alert("不支援 WebRTC"); }
+        }
+
+        function closeLobby() { document.getElementById('host-lobby').style.display = 'none'; highlightTurn(); safeBroadcast(); }
+
+        // === Client ===
+        function startStudent() {
+            initAudio();
+            const code = document.getElementById('room-input').value;
+            if(!code) return alert("請輸入房間號");
+            const hostId = APP_PREFIX + code;
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('conn-msg').style.display = 'flex';
+            try {
+                peer = new Peer(peerConfig); 
+                peer.on('open', () => {
+                    conn = peer.connect(hostId, {reliable: true});
+                    conn.on('open', () => {
+                        document.getElementById('conn-msg').style.display = 'none';
+                        document.getElementById('student-ui').style.display = 'flex';
+                    });
+                    conn.on('data', d => { lastReceivedState = d; updatePad(d); });
+                });
+            } catch(e) { alert("不支援"); }
+        }
+
+        function startOffline() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('teacher-ui').style.display = 'flex';
+            document.getElementById('host-lobby').style.display = 'none';
+            highlightTurn();
+        }
+
+        function joinGame(t) {
+            myTeam = t;
+            document.getElementById('team-select').style.display = 'none';
+            document.getElementById('pad-screen').style.display = 'flex';
+            if(lastReceivedState) updatePad(lastReceivedState);
+        }
+
+        function sendCmd(cmd, val) { if(conn && conn.open) { conn.send({cmd, val, team:myTeam}); vibe(50); } }
+
+        function updatePad(data) {
+            let isMyTurn = (data.turn === myTeam);
+            let status = document.getElementById('pad-msg');
+            document.getElementById('pad-dice').style.display = 'none';
+            document.getElementById('pad-quiz').style.display = 'none';
+            document.getElementById('pad-target').style.display = 'none';
+            document.getElementById('pad-wager').style.display = 'none';
+            
+            if(isMyTurn) {
+                status.style.color = players[myTeam].c;
+                if(data.state === 'IDLE') {
+                    status.innerText = "👉 輪到你了！"; document.getElementById('pad-dice').style.display = 'flex'; vibe([100,50,100]);
+                } else if (data.state === 'WAGER') {
+                    status.innerText = "👉 下注時間"; 
+                    document.getElementById('pad-wager').style.display = 'flex';
+                    document.getElementById('wager-info').innerText = `本題價值: ${data.baseScore} 分`;
+                    document.getElementById('btn-wager-1').innerHTML = `🛡️ 一般<br>(${data.baseScore}分)`;
+                    document.getElementById('btn-wager-2').innerHTML = `🔥 翻倍<br>(${data.baseScore*2}分)`;
+                } else if (data.state === 'QUIZ') {
+                    status.innerText = "👉 請作答！"; document.getElementById('pad-quiz').style.display = 'flex';
+                } else if (data.state === 'SELECT_TARGET') {
+                    document.getElementById('pad-target').style.display = 'flex';
+                    renderMobileTargets();
+                } else status.innerText = "看大螢幕...";
+            } else {
+                status.style.color = "#888"; status.innerText = `等待 ${players[data.turn].n}...`;
+            }
+        }
+        
+        function renderMobileTargets() {
+             let grid = document.getElementById('mobile-target-grid');
+             grid.innerHTML = '';
+             players.forEach((p,i) => {
+                 if(i !== turn) {
+                     let btn = document.createElement('button');
+                     btn.className = 'btn';
+                     btn.style.background = p.c;
+                     btn.style.color = 'white';
+                     btn.innerText = `搶 ${p.n}`;
+                     btn.onclick = () => sendCmd('TARGET', i);
+                     grid.appendChild(btn);
+                 }
+             });
+        }
+
+        function renderBoard() {
+            const b = document.getElementById('board');
+            if(!b) return; b.innerHTML = ''; 
+            for(let i=0; i<mapSize; i++) {
+                let d = document.createElement('div'); d.className = `cell ${mapCells[i]}`;
+                if(mapCells[i]==='Start') d.innerText = "🚀";
+                else if(mapCells[i]==='Finish') d.innerText = "🏆";
+                else if(mapCells[i]==='Steal') d.innerText = "😈";
+                else if(mapCells[i]==='Bankrupt') d.innerText = "💸";
+                else if(mapCells[i]==='Return') d.innerText = "🏠";
+                else if(mapCells[i]==='Gift') d.innerText = "🎁";
+                else d.innerText = i+1; 
+                let r = Math.floor(i/cols)+1; let c = (i%cols)+1;
+                if(r%2===0) c = (cols+1)-c; d.style.gridRow=r; d.style.gridColumn=c; d.id=`c-${i}`;
+                b.appendChild(d);
+            }
+            players.forEach((p,i) => { updateTokenPos(i, 0); });
+        }
+        
+        function updateTokenPos(pid, idx) {
+            let cell = document.getElementById(`c-${idx}`);
+            let token = document.getElementById(`t-${pid}`);
+            if(!token) {
+                let p = players[pid];
+                token = document.createElement('div'); token.className = 'token'; 
+                token.innerText = ["🐯","🐳","🐸","🦁"][pid]; 
+                token.style.color=p.c; token.style.borderColor=p.c; token.id=`t-${pid}`;
+                token.onclick = () => { if(state==='IDLE' && turn===pid && confirm(`幫 ${p.n} 擲骰子？`)) rollDice(); };
+            }
+            if(cell) cell.appendChild(token);
+        }
+        
+        function highlightTurn() {
+            for(let i=0; i<4; i++) document.getElementById(`card-${i}`).classList.remove('active');
+            document.getElementById(`card-${turn}`).classList.add('active');
+            document.querySelectorAll('.token').forEach(t => t.classList.remove('active-token'));
+            let ct = document.getElementById(`t-${turn}`); if(ct) ct.classList.add('active-token');
+            
+            // 更新上方順序條
+            for(let i=0; i<4; i++) document.getElementById(`order-${i}`).classList.remove('active');
+            document.getElementById(`order-${turn}`).classList.add('active');
+
+            let banner = document.getElementById('turn-banner');
+            banner.innerText = `輪到：${players[turn].n}`; 
+            banner.style.color = players[turn].c;
+            banner.style.opacity = 1;
+            setTimeout(() => { banner.style.opacity = 0; }, 2000);
+        }
+
+        function rollDice() {
+            state = 'MOVING'; safeBroadcast(); playSfx('roll');
+            setTimeout(() => {
+                let steps = Math.floor(Math.random()*6)+1;
+                let p = players[turn]; let c = 0;
+                let t = setInterval(()=>{
+                    p.p++;
+                    if(p.p >= mapSize-1) {
+                        p.p = mapSize-1; clearInterval(t); updateTokenPos(turn, p.p); victory(p.n); return;
+                    }
+                    updateTokenPos(turn, p.p); c++;
+                    if(c >= steps) { clearInterval(t); checkEvent(p.p); }
+                }, 300);
+            }, 50);
+        }
+
+        function safeBroadcast() {
+            try { connections.forEach(c => { if(c.open) c.send({type:'STATE', turn:turn, state:state, baseScore:currentBaseScore}); }); } catch(e) {}
+        }
+
+        function checkEvent(pos) {
+            let t = mapCells[pos];
+            if(t==='Q') openWager(); 
+            else if(t==='Gift') showModal("🎁 天降好禮", "恭喜獲得 30 分！", true, ()=>{players[turn].s+=30; nextTurn();});
+            else if(t==='Return') showModal("🏠 慘遭退貨", "回到原點重新開始！", true, ()=>{players[turn].p=0; updateTokenPos(turn,0); nextTurn();});
+            else if(t==='Bankrupt') showModal("💸 破產啦", "分數全部歸零！(幫QQ)", true, ()=>{players[turn].s=0; nextTurn();});
+            else if(t==='Steal') {
+                state = 'SELECT_TARGET'; safeBroadcast();
+                let html = `<h1>😈 選擇搶奪對象</h1><p>請選擇一組搶走 20% 分數：</p><div class="target-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">`;
+                players.forEach((p,i) => {
+                    if(i!==turn) html += `<button class="btn" style="background:${p.c}; color:white; padding:15px;" onclick="executeSteal(${i})">${p.n}</button>`;
+                });
+                html += `</div>`;
+                document.getElementById('modal-content').innerHTML = html;
+                document.getElementById('modal').style.display='flex';
+            }
+            else nextTurn();
+        }
+
+        function executeSteal(targetIdx) {
+            document.getElementById('modal').style.display='none';
+            let stolen = Math.floor(players[targetIdx].s * 0.2); 
+            players[targetIdx].s -= stolen; players[turn].s += stolen;
+            alert(`😈 搶奪成功！\n從 ${players[targetIdx].n} 搶走了 ${stolen} 分！`);
+            nextTurn();
+        }
+
+        function openWager() {
+            state = 'WAGER'; 
+            currentBaseScore = (Math.floor(Math.random() * 5) + 1) * 10;
+            currentMultiplier = 1;
+            safeBroadcast();
+
+            let html = `<h1>🎲 機會命運</h1>
+            <p>本題價值 <b style="color:var(--blue); font-size:2rem;">${currentBaseScore} 分</b></p>
+            <p>你要下多少注？</p>
+            <div class="wager-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <button class="btn" style="background:var(--blue); color:white; padding:20px;" onclick="setWager(1, this)">🛡️ 一般 (${currentBaseScore}分)</button>
+                <button class="btn" style="background:var(--red); color:white; padding:20px;" onclick="setWager(2, this)">🔥 翻倍 (${currentBaseScore*2}分)</button>
+            </div>`;
+            document.getElementById('modal-content').innerHTML = html;
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function setWager(m, btn) {
+            if(btn) btn.disabled = true; // 防連點
+            currentMultiplier = m;
+            openQuiz();
+        }
+
+        function openQuiz() {
+            state = 'QUIZ'; safeBroadcast();
+            currentQ = getNextQuestion();
+            let pts = currentBaseScore * currentMultiplier;
+            let html = `<h3 style="color:#666">本題價值: ${pts} 分 ${currentMultiplier>1?'(已翻倍)':''}</h3><h2 style="color:#333">${currentQ.q}</h2><div style="text-align:left">`;
+            currentQ.o.forEach((o, i) => {
+                html += `<div class="opt-row" onclick="checkAns(${i}, this)">${String.fromCharCode(65+i)}. ${o}</div>`;
+            });
+            html += `</div><button id="next-btn" onclick="finishQuiz(this)">下一位 (老師請按我)</button>`;
+            document.getElementById('modal-content').innerHTML = html;
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function checkAns(ans, el) {
+            let rows = document.querySelectorAll('.opt-row');
+            let target = el || rows[ans];
+            if(!target) return;
+            if(document.getElementById('next-btn').style.display === 'block') return;
+
+            let points = currentBaseScore * currentMultiplier;
+            if(ans === currentQ.a) {
+                target.classList.add('correct'); players[turn].s += points; playSfx('win');
+            } else {
+                target.classList.add('wrong'); rows[currentQ.a].classList.add('correct'); players[turn].s -= points; playSfx('fail');
+            }
+            document.getElementById('next-btn').style.display = 'block';
+        }
+
+        function finishQuiz(btn) {
+            if(btn) btn.disabled = true;
+            document.getElementById('modal').style.display = 'none';
+            nextTurn();
+        }
+
+        function showModal(t, m, btn, cb) {
+            document.getElementById('modal-content').innerHTML = `<h1>${t}</h1><p>${m}</p>${btn?`<button class="btn" style="background:var(--blue); color:white; width:100%; padding:10px;" id="ok-btn">確定</button>`:''}`;
+            document.getElementById('modal').style.display = 'flex';
+            if(btn) document.getElementById('ok-btn').onclick = function() { 
+                this.disabled = true; // 防連點
+                document.getElementById('modal').style.display = 'none'; 
+                if(cb) cb(); 
+            };
+        }
+
+        function victory(n) { confetti(); showModal("冠軍", `🏆 恭喜 ${n} 獲勝！`, false); }
+        
+        // ★★★ 核心修正：防跳號鎖 ★★★
+        function nextTurn() { 
+            // 1. 檢查冷卻時間 (防止連續呼叫)
+            const now = Date.now();
+            if (now - lastTurnTime < 1500) { 
+                console.warn("Blocked rapid nextTurn call");
+                return; 
+            }
+            lastTurnTime = now;
+
+            updateHUD(); 
+            turn = (turn + 1) % 4; // 絕對順序
+            state = 'IDLE'; 
+            highlightTurn(); 
+            safeBroadcast(); 
+        }
+        
+        function updateHUD() { for(let i=0; i<4; i++) document.getElementById(`s${i}`).innerText = players[i].s; }
+    </script>
+</body>
+</html>
