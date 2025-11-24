@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>高分子派對 (完美連線版)</title>
+    <title>高分子派對 (穩定版)</title>
     
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -294,7 +294,6 @@
         ];
         const mapSize = 50; const cols = 10;
         let mapCells = [];
-        // ★★★ 關鍵修改：暫存最新的遊戲狀態 ★★★
         let lastReceivedState = {turn: 0, state: 'IDLE'}; 
 
         // === 初始化 ===
@@ -305,18 +304,43 @@
         };
 
         function initAudio() {
-            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if(audioCtx.state === 'suspended') audioCtx.resume();
+            try {
+                if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if(audioCtx.state === 'suspended') audioCtx.resume();
+            } catch(e) { console.warn("Audio init failed", e); }
         }
 
+        // ★★★ 關鍵修復：音效防爆機制 ★★★
+        // 就算音效系統壞掉，遊戲邏輯也不會被中斷
         function playSfx(name) {
-            if(!audioCtx) return;
-            const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
-            osc.connect(g); g.connect(audioCtx.destination);
-            if(name==='roll'){osc.type='triangle';osc.frequency.setValueAtTime(200,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.2);osc.start();osc.stop(audioCtx.currentTime+0.2);}
-            if(name==='win'){osc.type='sine';osc.frequency.setValueAtTime(400,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.5);osc.start();osc.stop(audioCtx.currentTime+0.5);}
-            if(name==='fail'){osc.type='sawtooth';osc.frequency.setValueAtTime(150,audioCtx.currentTime);g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.3);osc.start();osc.stop(audioCtx.currentTime+0.3);}
+            try {
+                if(!audioCtx) initAudio();
+                if(!audioCtx) return; // 如果還是沒有，就安靜地離開
+                if(audioCtx.state === 'suspended') audioCtx.resume();
+                
+                const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
+                osc.connect(g); g.connect(audioCtx.destination);
+                
+                if(name==='roll'){
+                    osc.type='triangle';osc.frequency.setValueAtTime(200,audioCtx.currentTime);
+                    g.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.2);
+                    osc.start();osc.stop(audioCtx.currentTime+0.2);
+                }
+                if(name==='win'){
+                    osc.type='sine';osc.frequency.setValueAtTime(400,audioCtx.currentTime);
+                    g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.5);
+                    osc.start();osc.stop(audioCtx.currentTime+0.5);
+                }
+                if(name==='fail'){
+                    osc.type='sawtooth';osc.frequency.setValueAtTime(150,audioCtx.currentTime);
+                    g.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.3);
+                    osc.start();osc.stop(audioCtx.currentTime+0.3);
+                }
+            } catch(e) {
+                console.error("Audio Play Error (Ignored):", e);
+            }
         }
+
         function vibe(p) { if(navigator.vibrate) navigator.vibrate(p); }
         function log(msg) { document.getElementById('debug-log').innerText = msg; console.log(msg); }
 
@@ -340,7 +364,6 @@
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('teacher-ui').style.display = 'flex';
             
-            // 設定等待大廳資訊
             document.getElementById('lobby-code').innerText = roomCode;
             document.getElementById('host-room-info').innerText = `房間: ${roomCode}`;
             log("電腦端正在建立 (STUN)...");
@@ -362,7 +385,6 @@
                     log(`新連線! 總數: ${connections.length}`);
                     document.getElementById('lobby-status').innerText = `目前連線人數: ${connections.length}`;
                     
-                    // 等 0.5 秒確保穩定後發送狀態
                     setTimeout(() => { if(c.open) c.send({type:'STATE', turn:turn, state:state}); }, 500);
 
                     c.on('data', d => {
@@ -378,7 +400,6 @@
         function closeLobby() {
             document.getElementById('host-lobby').style.display = 'none';
             alert("遊戲開始！\n\n💡 提示：如果該隊伍沒有人連線，老師可以直接點擊地圖上的「動物棋子」幫忙擲骰子！");
-            // ★★★ 關鍵修改：按下開始時，強制廣播一次狀態 ★★★
             broadcast();
         }
 
@@ -413,7 +434,6 @@
                     });
                     
                     conn.on('data', d => {
-                        // ★★★ 關鍵修改：收到資料先存起來，再更新 UI ★★★
                         lastReceivedState = d;
                         updatePad(d);
                     });
@@ -444,7 +464,6 @@
             myTeam = t;
             document.getElementById('team-select').style.display = 'none';
             document.getElementById('pad-screen').style.display = 'flex';
-            // ★★★ 關鍵修改：選完組別後，立刻用最新的狀態刷新畫面 ★★★
             if(lastReceivedState) updatePad(lastReceivedState);
             log(`加入隊伍: ${players[t].n}`);
         }
@@ -509,7 +528,14 @@
         }
 
         function rollDice() {
-            state = 'MOVING'; broadcast(); playSfx('roll');
+            // 狀態改變
+            state = 'MOVING'; 
+            broadcast(); // 1. 先告訴手機狀態變了
+            
+            // 2. 嘗試播音效，但保證不報錯
+            try { playSfx('roll'); } catch(e) {} 
+            
+            // 3. 確保動畫一定會跑
             let steps = Math.floor(Math.random()*6)+1;
             let p = players[turn];
             let c = 0;
