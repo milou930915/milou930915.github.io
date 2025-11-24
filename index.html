@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>高分子派對 (友情破壞版)</title>
+    <title>高分子派對 (終極課堂版)</title>
     
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -58,14 +58,6 @@
             outline: none; box-shadow: 0 4px 0 rgba(0,0,0,0.1); font-weight: bold; color: #555;
         }
 
-        /* 連線訊息 */
-        #conn-msg {
-            background: rgba(255,255,255,0.95); color: var(--blue); padding: 30px; border-radius: 20px;
-            font-size: 1.5rem; font-weight: bold; box-shadow: 0 20px 50px rgba(0,0,0,0.2);
-            display: none; flex-direction: column; align-items: center; gap: 15px; z-index: 200;
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; max-width: 400px;
-        }
-
         /* 2. 電腦端介面 */
         #teacher-ui { display: none; width: 100%; height: 100%; flex-direction: column; position: relative; }
         
@@ -83,9 +75,16 @@
         }
         .score-card {
             background: white; padding: 8px 20px; border-radius: 50px; font-size: 1.2rem; 
-            display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 0 #ddd; border: 3px solid transparent; transition: 0.3s;
+            display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 0 #ddd; border: 3px solid transparent; transition: 0.3s; opacity: 0.5;
         }
-        .score-card.active { transform: scale(1.15) translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.15); border-color: currentColor;}
+        /* 當前回合高亮 */
+        .score-card.active { 
+            transform: scale(1.15) translateY(-5px); 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2); 
+            border-color: currentColor; 
+            opacity: 1; 
+            font-weight: bold;
+        }
 
         .board-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 10px; position: relative; }
         .board {
@@ -100,7 +99,7 @@
         }
         .cell.Start { background: #FFD3B6; color: #ff6b6b; border: none;}
         .cell.Finish { background: #FFD93D; color: #d35400; border: 3px solid #ff9f43;}
-        .cell.Q { background: white; color: #aaa; } 
+        .cell.Q { background: white; color: #888; border: 2px solid #eee; } /* 題目格 */
         .cell.Steal { background: #E1BEE7; color: #8E24AA; border: 2px solid #BA68C8; }
         .cell.Bankrupt { background: #263238; color: #fff; border: 2px solid #000; }
         .cell.Return { background: #FFCCBC; color: #D84315; border: 2px solid #FF5722; }
@@ -111,93 +110,74 @@
             width: 40px; height: 40px; border-radius: 50%; position: absolute; z-index: 10;
             background: white; border: 3px solid white; box-shadow: 0 5px 10px rgba(0,0,0,0.3);
             display: flex; justify-content: center; align-items: center; font-size: 1.5rem;
-            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer;
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer; opacity: 0.6;
         }
-        .token:hover { transform: scale(1.2); filter: brightness(1.1); }
-        .token:active { transform: scale(0.9); }
+        /* 只有當前回合的棋子會變亮並跳動 */
+        .token.active-token { opacity: 1; transform: scale(1.2); animation: jump 1s infinite alternate; z-index: 20; box-shadow: 0 0 20px rgba(255,255,0,0.8); }
+        @keyframes jump { from{transform: translateY(0) scale(1.2);} to{transform: translateY(-10px) scale(1.2);} }
 
         /* 3. 手機端介面 */
         #student-ui { display: none; width: 100%; height: 100%; flex-direction: column; background: #f0f2f5; }
         .mobile-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-        
         .team-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; }
-        
         .pad-msg { font-size: 2rem; color: #333; margin-bottom: 30px; font-weight: bold; text-align:center;}
         .big-action-btn { width: 250px; height: 250px; border-radius: 50%; font-size: 3rem; background: var(--yellow); color: #8a6d0b; box-shadow: 0 15px 0 #d4b106; }
         .big-action-btn:active { transform: translateY(15px); box-shadow: 0 0 0 #d4b106; }
         .ans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 400px; }
         .ans-btn { height: 80px; font-size: 1.5rem; color: white; border-radius: 20px; }
-        
-        /* 選擇受害者介面 */
         .target-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 400px; }
 
         /* 彈窗 */
         .modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 200; }
         .modal-card { background: white; width: 90%; max-width: 600px; padding: 30px; border-radius: 30px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); animation: bounceIn 0.4s; max-height: 90vh; overflow-y: auto;}
-        @keyframes bounceIn { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
         
         .opt-row { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 15px; text-align: left; font-size: 1.2rem; border: 3px solid transparent; cursor: pointer; transition: background 0.2s; }
-        .opt-row:hover { background: #e3f2fd; } 
         .opt-row.correct { background: #e8f5e9; border-color: var(--green); color: var(--green); font-weight: bold;}
         .opt-row.wrong { background: #ffebee; border-color: var(--red); color: var(--red); }
         
-        /* 輪次提示 */
+        /* 下一位按鈕 (閃爍) */
+        #next-btn { 
+            animation: pulseBtn 1s infinite; 
+            font-size: 1.5rem; padding: 15px; border-radius: 15px; width: 100%; margin-top: 20px;
+            background: var(--green); color: white; border: none; cursor: pointer; display: none;
+        }
+        @keyframes pulseBtn { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        /* 輪次提示Banner */
         .turn-banner {
-            position: absolute; top: 15%; width: 100%; text-align: center;
-            font-size: 3rem; font-weight: bold; text-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            pointer-events: none; opacity: 0; transition: opacity 0.5s; z-index: 20;
+            position: absolute; top: 5%; width: 100%; text-align: center;
+            font-size: 2.5rem; font-weight: bold; text-shadow: 0 2px 10px rgba(255,255,255,0.8);
+            z-index: 15; background: rgba(255,255,255,0.7); padding: 5px 0;
         }
 
-        #debug-log {
-            position: fixed; top: 0; left: 0; width: 50%; max-height: 200px; overflow-y:auto; 
-            background: rgba(0,0,0,0.7); color: #0f0; font-size: 12px; padding: 5px; 
-            z-index: 9999; pointer-events: none; text-align: left; font-family: monospace; display:none; 
-        }
+        #conn-msg { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; flex-direction: column; align-items: center; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body>
 
-    <div id="debug-log">Log: 初始化完成...</div>
-
     <div id="start-screen">
         <div class="logo">🧪 高分子派對</div>
-        
-        <button class="btn role-btn" style="background:var(--blue);" onclick="startTeacher()">
-            💻 我是電腦 (Host)
-        </button>
-        
-        <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.5); width: 80%;"></div>
-
-        <div class="input-group">
-            <input type="tel" id="room-input" placeholder="輸入房間號碼" maxlength="4">
-        </div>
-        <button class="btn role-btn" style="background:white; color:var(--blue);" onclick="startStudent()">
-            📱 手機加入
-        </button>
-        
-        <button class="btn" style="background:rgba(0,0,0,0.2); color:white; font-size:0.9rem; margin-top:20px; padding:10px 20px;" onclick="startOffline()">
-            ⚠️ 單機版 (免連線)
-        </button>
+        <button class="btn role-btn" style="background:var(--blue);" onclick="startTeacher()">💻 我是電腦 (Host)</button>
+        <div style="width:80%; height:1px; background:#aaa; margin:20px 0;"></div>
+        <div class="input-group"><input type="tel" id="room-input" placeholder="輸入房間號碼" maxlength="4"></div>
+        <button class="btn role-btn" style="background:white; color:var(--blue);" onclick="startStudent()">📱 手機加入</button>
+        <button class="btn" style="background:#eee; color:#666; font-size:0.9rem; margin-top:20px; padding:10px 20px;" onclick="startOffline()">⚠️ 單機版</button>
     </div>
 
     <div id="conn-msg">
         <div style="font-size:3rem">🔄</div>
-        <div>連線中...</div>
-        <div style="font-size: 0.9rem; color:#888" id="conn-detail">正在尋找房間</div>
+        <h3>連線中...</h3>
     </div>
 
     <div id="teacher-ui">
         <div id="host-lobby">
-            <h2 style="margin:0; opacity:0.8;">請學生輸入房間號碼</h2>
+            <h2 style="margin:0; opacity:0.8;">請輸入房間號碼</h2>
             <div id="lobby-code" class="room-code-display">----</div>
-            <div class="lobby-info" id="lobby-status">目前連線人數: 0</div>
-            
-            <button class="btn" style="background:var(--green); color:white; padding: 20px 60px; font-size: 2rem; box-shadow: 0 10px 0 #4da559;" onclick="closeLobby()">
-                🚀 開始遊戲
-            </button>
+            <div class="lobby-info" id="lobby-status">目前連線: 0</div>
+            <button class="btn" style="background:var(--green); color:white; padding: 20px 60px; font-size: 2rem;" onclick="closeLobby()">🚀 開始遊戲</button>
         </div>
 
-        <div id="turn-banner" class="turn-banner">輪到 第一組</div>
+        <div id="turn-banner" class="turn-banner">準備開始...</div>
 
         <div class="hud">
             <div id="card-0" class="score-card" style="color:var(--red)"><span>🐯 第一組</span> <span id="s0">0</span></div>
@@ -230,7 +210,7 @@
                 </div>
             </div>
             <div id="pad-target" style="display:none; width:100%; justify-content:center;">
-                <div class="pad-msg" style="font-size:1.5rem">請選擇要搶奪的對象</div>
+                <div class="pad-msg" style="font-size:1.5rem">請選擇搶奪對象</div>
                 <div class="target-grid" id="mobile-target-grid"></div>
             </div>
         </div>
@@ -239,18 +219,11 @@
     <div id="modal" class="modal-mask"><div class="modal-card"><div id="modal-content"></div></div></div>
 
     <script>
-        // === 核心設定 ===
+        // === 1. 設定與題庫 ===
         const APP_PREFIX = "poly-party-2025-"; 
-        const peerConfig = {
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
-                ]
-            }
-        };
-
-        // 完整題庫
+        const peerConfig = { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } };
+        
+        // 35題 (內建洗牌)
         const allQuestions = [
             {q:"1.高分子的分子結構一般是？", o:["很小原子", "長鏈狀", "金屬排列", "氣體分子"], a:1},
             {q:"2.下列何者是「熱固性塑膠」？", o:["膠帶", "保麗龍", "酚醛樹脂", "寶特瓶"], a:2},
@@ -288,7 +261,7 @@
             {q:"34.耐熱性有關？", o:["分子結構", "顏色", "形狀", "氣味"], a:0},
             {q:"35.合成高分子例子？", o:["蛋白質", "天然橡膠", "PVC", "纖維素"], a:2}
         ];
-
+        
         let questionPool = [];
         let peer, conn, myTeam = -1, turn = 0, state = "IDLE", currentQ = null;
         let connections = [];
@@ -301,14 +274,13 @@
         let lastReceivedState = {turn: 0, state: 'IDLE'};
         let audioCtx; 
 
-        // === 初始化 ===
+        // === 2. 初始化 ===
         window.onload = function() { 
             try {
                 shuffleQuestions(); 
                 initMap(); 
                 renderBoard(); 
-                highlightTurn();
-            } catch(e) { console.log("Init Failed", e); }
+            } catch(e) { console.log(e); }
         };
 
         function initAudio() {
@@ -341,7 +313,6 @@
                 }
             } catch(e) {}
         }
-
         function vibe(p) { if(navigator.vibrate) navigator.vibrate(p); }
 
         function shuffleQuestions() {
@@ -356,35 +327,30 @@
             return questionPool.pop();
         }
 
-        // ★★★ 刺激地圖生成 ★★★
         function initMap() {
-            // 建立一個有權重的陣列
-            let cellTypes = [];
-            for(let i=0; i<35; i++) cellTypes.push("Q");        // 70% 答題
-            for(let i=0; i<5; i++) cellTypes.push("Steal");     // 10% 搶奪
-            for(let i=0; i<3; i++) cellTypes.push("Gift");      // 6% 送分
-            for(let i=0; i<2; i++) cellTypes.push("Return");    // 4% 回原點
-            for(let i=0; i<2; i++) cellTypes.push("Bankrupt");  // 4% 破產
-            // 剩下機率填滿
-
+            let types = [];
+            // 70% 題目, 30% 特殊事件
+            for(let i=0; i<35; i++) types.push("Q");
+            for(let i=0; i<5; i++) types.push("Steal"); 
+            for(let i=0; i<3; i++) types.push("Gift");
+            for(let i=0; i<2; i++) types.push("Return");
+            for(let i=0; i<3; i++) types.push("Bankrupt");
+            
             // 洗牌
-            for (let i = cellTypes.length - 1; i > 0; i--) {
+            for (let i = types.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
-                [cellTypes[i], cellTypes[j]] = [cellTypes[j], cellTypes[i]];
+                [types[i], types[j]] = [types[j], types[i]];
             }
 
             mapCells = new Array(mapSize);
             mapCells[0] = "Start";
             mapCells[mapSize-1] = "Finish";
-            
-            // 填入地圖 (避開頭尾)
             for(let i=1; i<mapSize-1; i++) {
-                if(i <= cellTypes.length) mapCells[i] = cellTypes[i-1];
-                else mapCells[i] = "Q"; // 萬一不夠就補 Q
+                mapCells[i] = types[i-1] || "Q";
             }
         }
 
-        // === 電腦端 (Host) ===
+        // === 3. 連線邏輯 ===
         function startTeacher() {
             initAudio();
             const roomCode = Math.floor(1000 + Math.random() * 9000);
@@ -392,11 +358,12 @@
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('teacher-ui').style.display = 'flex';
             document.getElementById('lobby-code').innerText = roomCode;
+            
             try {
                 peer = new Peer(peerId, peerConfig);
                 peer.on('connection', c => {
                     connections.push(c);
-                    document.getElementById('lobby-status').innerText = `目前連線人數: ${connections.length}`;
+                    document.getElementById('lobby-status').innerText = `目前連線: ${connections.length}`;
                     setTimeout(() => { if(c.open) c.send({type:'STATE', turn:turn, state:state}); }, 500);
                     c.on('data', d => {
                         if(d.team !== turn) return; 
@@ -405,7 +372,7 @@
                         if(d.cmd === 'TARGET' && state === 'SELECT_TARGET') executeSteal(d.val);
                     });
                 });
-            } catch(e) { alert("瀏覽器不支援 WebRTC"); }
+            } catch(e) { alert("不支援"); }
         }
 
         function closeLobby() {
@@ -414,7 +381,6 @@
             safeBroadcast();
         }
 
-        // === 手機端 (Client) ===
         function startStudent() {
             initAudio();
             const code = document.getElementById('room-input').value;
@@ -471,9 +437,8 @@
                 } else if (data.state === 'QUIZ') {
                     status.innerText = "👉 請作答！"; document.getElementById('pad-quiz').style.display = 'flex';
                 } else if (data.state === 'SELECT_TARGET') {
-                    // 顯示搶奪對象選擇按鈕
                     document.getElementById('pad-target').style.display = 'flex';
-                    renderMobileTargets(); // 繪製按鈕
+                    renderMobileTargets();
                 } else status.innerText = "看大螢幕...";
             } else {
                 status.style.color = "#888"; status.innerText = `等待 ${players[data.turn].n}...`;
@@ -489,7 +454,6 @@
                      btn.className = 'btn';
                      btn.style.background = p.c;
                      btn.style.color = 'white';
-                     btn.style.padding = '20px';
                      btn.innerText = `搶 ${p.n}`;
                      btn.onclick = () => sendCmd('TARGET', i);
                      grid.appendChild(btn);
@@ -497,6 +461,7 @@
              });
         }
 
+        // === 4. 遊戲主邏輯 ===
         function renderBoard() {
             const b = document.getElementById('board');
             if(!b) return;
@@ -505,7 +470,6 @@
             for(let i=0; i<mapSize; i++) {
                 let d = document.createElement('div');
                 d.className = `cell ${mapCells[i]}`;
-                // 顯示圖示
                 if(mapCells[i]==='Start') d.innerText = "🚀";
                 else if(mapCells[i]==='Finish') d.innerText = "🏆";
                 else if(mapCells[i]==='Steal') d.innerText = "😈";
@@ -531,19 +495,25 @@
                 token.className = 'token'; 
                 token.innerText = ["🐯","🐳","🐸","🦁"][pid]; 
                 token.style.color=p.c; token.style.borderColor=p.c; token.id=`t-${pid}`;
+                // 代打功能
                 token.onclick = () => { if(state==='IDLE' && turn===pid && confirm(`幫 ${p.n} 擲骰子？`)) rollDice(); };
             }
             if(cell) cell.appendChild(token);
         }
         
         function highlightTurn() {
+            // 清除舊高亮
+            document.querySelectorAll('.token').forEach(t => t.classList.remove('active-token'));
             for(let i=0; i<4; i++) document.getElementById(`card-${i}`).classList.remove('active');
+            
+            // 新增高亮
             document.getElementById(`card-${turn}`).classList.add('active');
+            let currentToken = document.getElementById(`t-${turn}`);
+            if(currentToken) currentToken.classList.add('active-token');
+
             let banner = document.getElementById('turn-banner');
             banner.innerText = `輪到：${players[turn].n}`;
             banner.style.color = players[turn].c;
-            banner.style.opacity = 1;
-            setTimeout(() => { banner.style.opacity = 0; }, 2500);
         }
 
         function rollDice() {
@@ -581,10 +551,8 @@
                 players[turn].s=0; nextTurn();
             });
             else if(t==='Steal') {
-                // 啟動搶奪模式
                 state = 'SELECT_TARGET'; 
                 safeBroadcast();
-                // 老師介面顯示
                 let html = `<h1>😈 選擇搶奪對象</h1><p>請選擇一組搶走 20% 分數：</p><div class="target-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">`;
                 players.forEach((p,i) => {
                     if(i!==turn) html += `<button class="btn" style="background:${p.c}; color:white; padding:15px;" onclick="executeSteal(${i})">${p.n}</button>`;
@@ -593,17 +561,14 @@
                 document.getElementById('modal-content').innerHTML = html;
                 document.getElementById('modal').style.display='flex';
             }
-            else nextTurn();
+            else nextTurn(); // 確保無效格子也會跳下一位
         }
 
         function executeSteal(targetIdx) {
             document.getElementById('modal').style.display='none';
-            let stolen = Math.floor(players[targetIdx].s * 0.2); // 搶 20%
-            if(stolen < 0) stolen = 0; // 不會搶成負的
-            
+            let stolen = Math.floor(players[targetIdx].s * 0.2); 
             players[targetIdx].s -= stolen;
             players[turn].s += stolen;
-            
             alert(`😈 搶奪成功！\n從 ${players[targetIdx].n} 搶走了 ${stolen} 分！`);
             nextTurn();
         }
@@ -615,7 +580,7 @@
             currentQ.o.forEach((o, i) => {
                 html += `<div class="opt-row" onclick="checkAns(${i}, this)">${String.fromCharCode(65+i)}. ${o}</div>`;
             });
-            html += `</div><button class="btn" style="background:#333; color:white; width:100%; padding:10px; margin-top:10px; display:none;" id="next-btn" onclick="closeModal()">下一位</button>`;
+            html += `</div><button id="next-btn" onclick="closeModal()">下一位 (老師請按我)</button>`;
             document.getElementById('modal-content').innerHTML = html;
             document.getElementById('modal').style.display = 'flex';
         }
@@ -642,7 +607,15 @@
 
         function victory(n) { confetti(); showModal("冠軍", `🏆 恭喜 ${n} 獲勝！`, false); }
         function closeModal() { document.getElementById('modal').style.display = 'none'; nextTurn(); }
-        function nextTurn() { updateHUD(); turn = (turn + 1) % 4; state = 'IDLE'; highlightTurn(); safeBroadcast(); }
+        
+        function nextTurn() { 
+            updateHUD(); 
+            turn = (turn + 1) % 4; // 強制順序
+            state = 'IDLE'; 
+            highlightTurn(); 
+            safeBroadcast(); 
+        }
+        
         function updateHUD() { for(let i=0; i<4; i++) document.getElementById(`s${i}`).innerText = players[i].s; }
     </script>
 </body>
