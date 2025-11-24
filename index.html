@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>高分子派對 (全班同樂版)</title>
+    <title>高分子派對 (全視角觀戰版)</title>
     
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -15,10 +14,7 @@
         /* === 🎨 風格設定 === */
         :root {
             --bg-color: #2c3e50;
-            --red: #e74c3c;   /* 第一組 */
-            --blue: #3498db;  /* 第二組 */
-            --green: #2ecc71; /* 第三組 */
-            --yellow: #f1c40f;/* 第五組 */
+            --red: #e74c3c; --blue: #3498db; --green: #2ecc71; --yellow: #f1c40f;
             --text-color: #ecf0f1;
         }
 
@@ -39,7 +35,7 @@
         .btn:active { transform: translateY(6px); box-shadow: 0 0 0 rgba(0,0,0,0.4); }
         .btn:disabled { background-color: #95a5a6 !important; color: #bdc3c7 !important; transform: none !important; box-shadow: none !important; cursor: not-allowed; }
 
-        /* 1. 起始頁 */
+        /* 起始頁 */
         #start-screen {
             position: absolute; width: 100%; height: 100%; z-index: 100;
             background: linear-gradient(135deg, #2c3e50 0%, #4ca1af 100%);
@@ -54,22 +50,16 @@
         .input-group { display: flex; gap: 10px; width: 80%; max-width: 300px; }
         #room-input { flex: 1; padding: 15px; border-radius: 15px; border: none; font-size: 1.5rem; text-align: center; outline: none; box-shadow: 0 4px 0 rgba(0,0,0,0.1); font-weight: bold; color: #333; }
 
-        /* 2. 電腦端介面 */
+        /* 2. 電腦端 & 旁觀者介面 */
         #teacher-ui { display: none; width: 100%; height: 100%; flex-direction: column; position: relative; }
         
-        /* 順序條 */
         .turn-order-bar {
             display: flex; justify-content: center; gap: 15px; padding: 15px; background: rgba(0,0,0,0.3);
             box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 10;
         }
-        .order-item {
-            padding: 8px 20px; border-radius: 20px; font-weight: bold; color: #7f8c8d; border: 3px solid transparent; transition: 0.3s; background: rgba(255,255,255,0.1);
-        }
-        .order-item.active {
-            color: white; transform: scale(1.15); box-shadow: 0 0 15px rgba(255,255,255,0.5); opacity: 1; border-color: white;
-        }
+        .order-item { padding: 8px 20px; border-radius: 20px; font-weight: bold; color: #7f8c8d; border: 3px solid transparent; transition: 0.3s; background: rgba(255,255,255,0.1); }
+        .order-item.active { color: white; transform: scale(1.15); box-shadow: 0 0 15px rgba(255,255,255,0.5); opacity: 1; border-color: white; }
 
-        /* 老師等待大廳 */
         #host-lobby {
             position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); backdrop-filter: blur(8px);
             z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;
@@ -77,25 +67,22 @@
         .room-code-display { font-size: 6rem; font-weight: bold; color: var(--yellow); letter-spacing: 5px; margin: 20px 0; text-shadow: 0 0 20px rgba(241, 196, 15, 0.5); }
         .lobby-info { font-size: 1.5rem; margin-bottom: 40px; color: #bdc3c7; }
 
-        .hud {
-            height: 12%; display: flex; justify-content: center; gap: 20px; align-items: center; padding: 0 10px;
-        }
+        .hud { height: 12%; display: flex; justify-content: center; gap: 20px; align-items: center; padding: 0 10px; }
         .score-card {
             background: #34495e; padding: 10px 25px; border-radius: 50px; font-size: 1.4rem; color: white;
             display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 0 #2c3e50; border: 3px solid transparent; transition: 0.3s; opacity: 0.5;
         }
-        .score-card.active { 
-            transform: scale(1.1) translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.3); 
-            border-color: currentColor; opacity: 1; font-weight: bold; background: white; color: #2c3e50 !important;
-        }
+        .score-card.active { transform: scale(1.1) translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.3); border-color: currentColor; opacity: 1; font-weight: bold; background: white; color: #2c3e50 !important; }
 
-        .board-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 10px; position: relative; }
+        .board-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 10px; position: relative; overflow: auto; }
         .board {
             display: grid; grid-template-columns: repeat(10, 1fr); grid-template-rows: repeat(5, 1fr);
-            gap: 6px; width: 95%; height: 85%; max-width: 1400px;
+            gap: 6px; width: 95%; height: 85%; max-width: 1400px; transition: transform 0.3s;
         }
 
-        /* 格子樣式 */
+        /* 旁觀者模式下的縮放 */
+        .spectator-mode .board { transform-origin: center center; }
+
         .cell {
             background: white; border-radius: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center;
             font-size: 1.5rem; font-weight: bold; color: #bdc3c7; box-shadow: 0 4px 0 #95a5a6; position: relative; 
@@ -104,7 +91,6 @@
         .cell.Finish { background: #f1c40f; color: #d35400; border: 3px solid #d35400; }
         .cell.Mystery { background: #ecf0f1; color: #7f8c8d; } 
         
-        /* 棋子 */
         .token {
             width: 45px; height: 45px; border-radius: 50%; position: absolute; z-index: 10;
             background: white; border: 4px solid white; box-shadow: 0 5px 10px rgba(0,0,0,0.4);
@@ -114,7 +100,7 @@
         .token.active-token { opacity: 1; filter: grayscale(0); transform: scale(1.3); animation: jump 1s infinite alternate; z-index: 20; box-shadow: 0 0 25px rgba(255,255,255,0.8); border-color: #f1c40f; }
         @keyframes jump { from{transform: translateY(0) scale(1.3);} to{transform: translateY(-15px) scale(1.3);} }
 
-        /* 3. 手機端介面 */
+        /* 3. 手機控制端 */
         #student-ui { display: none; width: 100%; height: 100%; flex-direction: column; background: #ecf0f1; color: #333;}
         .mobile-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
         .team-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; }
@@ -136,7 +122,6 @@
         .opt-row.correct { background: #2ecc71; border-color: #27ae60; color: white;}
         .opt-row.wrong { background: #e74c3c; border-color: #c0392b; color: white;}
         
-        /* 排行榜樣式 */
         .rank-table { width: 100%; margin-top: 10px; border-collapse: collapse; }
         .rank-row { border-bottom: 1px solid #eee; font-size: 1.4rem; }
         .rank-row td { padding: 15px 10px; text-align: left; }
@@ -147,17 +132,12 @@
         .tab-btn { padding: 10px 20px; border-radius: 20px; border: none; cursor: pointer; background: #eee; font-weight: bold;}
         .tab-btn.active { background: var(--blue); color: white; }
 
-        #next-btn { 
-            animation: pulseBtn 1s infinite; 
-            font-size: 1.8rem; padding: 20px; border-radius: 15px; width: 100%; margin-top: 25px;
-            background: var(--green); color: white; border: none; cursor: pointer; display: none; box-shadow: 0 8px 0 #27ae60;
-        }
+        #next-btn { animation: pulseBtn 1s infinite; font-size: 1.8rem; padding: 20px; border-radius: 15px; width: 100%; margin-top: 25px; background: var(--green); color: white; border: none; cursor: pointer; display: none; box-shadow: 0 8px 0 #27ae60; }
         #next-btn:active { transform: translateY(8px); box-shadow: none; }
         @keyframes pulseBtn { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
 
         .turn-banner { position: absolute; top: 20%; width: 100%; text-align: center; font-size: 4rem; font-weight: 900; text-shadow: 0 5px 20px rgba(0,0,0,0.5); z-index: 15; color: white; pointer-events: none; opacity: 0; transition: 0.3s; transform: scale(0.8); }
         .turn-banner.show { opacity: 1; transform: scale(1.2); }
-        
         #conn-msg { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; flex-direction: column; align-items: center; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); color:#333;}
         #conn-status-text { margin-top: 10px; font-size: 1rem; color: #666; }
     </style>
@@ -213,7 +193,7 @@
                 <button class="btn" style="background:var(--blue); color:white; padding:30px;" onclick="joinGame(1)">🐳 第二組</button>
                 <button class="btn" style="background:var(--green); color:white; padding:30px;" onclick="joinGame(2)">🐸 第三組</button>
                 <button class="btn" style="background:var(--yellow); color:black; padding:30px;" onclick="joinGame(3)">🦁 第五組</button>
-                <button class="btn" style="background:#95a5a6; color:white; grid-column: span 2; padding:20px;" onclick="joinSpectator()">👀 我是觀眾 (純看戲)</button>
+                <button class="btn" style="background:#7f8c8d; color:white; grid-column:span 2; padding:20px;" onclick="joinSpectator()">👀 我是觀眾 (純看戲)</button>
             </div>
         </div>
         <div id="pad-screen" class="mobile-center" style="display:none;">
@@ -247,15 +227,10 @@
     <div id="modal" class="modal-mask"><div class="modal-card"><div id="modal-content"></div></div></div>
 
     <script>
-        const APP_PREFIX = "poly-party-2025-ios-final-"; 
+        const APP_PREFIX = "poly-party-2025-spect-v1-"; 
         const peerConfig = { 
             config: { 
-                iceServers: [
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:stun3.l.google.com:19302' },
-                    { urls: 'stun:stun4.l.google.com:19302' }
-                ],
+                iceServers: [{ urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:stun2.l.google.com:19302' }],
                 sdpSemantics: 'unified-plan'
             } 
         };
@@ -352,9 +327,14 @@
                 peer.on('connection', c => {
                     connections.push(c);
                     document.getElementById('lobby-status').innerText = `目前連線: ${connections.length}`;
-                    setTimeout(() => { if(c.open) c.send({type:'STATE', turn:turn, state:state, baseScore:currentBaseScore}); }, 500);
+                    // Host 廣播地圖和玩家狀態
+                    setTimeout(() => { 
+                        if(c.open) {
+                            c.send({type: 'MAP_SYNC', map: mapCells}); // 同步地圖
+                            c.send({type:'STATE', turn:turn, state:state, baseScore:currentBaseScore, players: players}); // 同步玩家與分數
+                        } 
+                    }, 500);
                     c.on('data', d => {
-                        if(d.team === -1) return; // Ignore spectators
                         if(d.team !== turn || isSwitchingTurn) return;
                         if(d.cmd === 'ROLL' && state === 'IDLE') rollDice();
                         if(d.cmd === 'WAGER' && state === 'WAGER') setWager(d.val);
@@ -374,9 +354,8 @@
             const hostId = APP_PREFIX + code;
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('conn-msg').style.display = 'flex';
-            
             const statusText = document.getElementById('conn-status-text');
-            statusText.innerText = "建立 ID 中...";
+            statusText.innerText = "建立連線...";
 
             try {
                 peer = new Peer(peerConfig); 
@@ -385,22 +364,43 @@
                     conn = peer.connect(hostId, {reliable: true, serialization: 'json'}); 
                     conn.on('open', () => {
                         document.getElementById('conn-msg').style.display = 'none';
-                        document.getElementById('student-ui').style.display = 'flex';
+                        // 如果是旁觀者，直接顯示 teacher-ui
+                        if (isSpectator) {
+                            document.getElementById('teacher-ui').style.display = 'flex';
+                            document.getElementById('host-lobby').style.display = 'none'; // 隱藏大廳
+                            document.body.classList.add('spectator-mode');
+                            // 縮放適配
+                            let scale = Math.min(window.innerWidth / 1400, 1);
+                            document.querySelector('.board').style.transform = `scale(${scale})`;
+                        } else {
+                            document.getElementById('student-ui').style.display = 'flex';
+                        }
                     });
                     conn.on('data', d => { 
-                        if(d.type === 'GAME_OVER') {
-                            showGameOverModal(d.winner, d.sRank, d.dRank);
+                        if(d.type === 'GAME_OVER') { showGameOverModal(d.winner, d.sRank, d.dRank); return; }
+                        if(d.type === 'MAP_SYNC') { mapCells = d.map; renderBoard(); return; }
+                        if(d.type === 'SHOW_MODAL') { 
+                            // 旁觀者顯示 Modal (無按鈕)
+                            if(isSpectator) showModal(d.title, d.content, false); 
                             return;
                         }
+                        if(d.type === 'CLOSE_MODAL') { closeModal(); return; }
+
+                        // 一般狀態更新
                         turn = d.turn; 
+                        players = d.players || players; // 更新分數與位置
                         lastReceivedState = d; 
-                        updatePad(d); 
+                        
+                        if(isSpectator) {
+                            updateHUD();
+                            highlightTurn();
+                            // 更新棋子位置
+                            players.forEach((p,i) => updateTokenPos(i, p.p));
+                        } else {
+                            updatePad(d); 
+                        }
                     });
                     conn.on('error', (err) => statusText.innerText = "連線中斷: " + err);
-                });
-                peer.on('error', (err) => {
-                    statusText.innerText = "連線失敗: " + err.type;
-                    setTimeout(() => { alert("連線失敗，請使用手機熱點"); location.reload(); }, 2000);
                 });
             } catch(e) { alert("瀏覽器不支援"); }
         }
@@ -421,39 +421,21 @@
             if(lastReceivedState) updatePad(lastReceivedState);
         }
 
+        // ★★★ 旁觀者模式 ★★★
         function joinSpectator() {
-            myTeam = -1;
             isSpectator = true;
-            initAudio();
-            document.getElementById('team-select').style.display = 'none';
-            document.getElementById('pad-screen').style.display = 'flex';
-            if(lastReceivedState) updatePad(lastReceivedState);
+            startStudent(); // 走連線流程
         }
 
-        function sendCmd(cmd, val, action) { 
-            if(isSpectator) return; // Spectators cannot send commands
-            if(conn && conn.open) { conn.send({cmd, val, action, team:myTeam}); vibe(50); } 
-        }
+        function sendCmd(cmd, val, action) { if(conn && conn.open) { conn.send({cmd, val, action, team:myTeam}); vibe(50); } }
 
         function updatePad(data) {
+            let isMyTurn = (data.turn === myTeam);
             let status = document.getElementById('pad-msg');
             document.getElementById('pad-dice').style.display = 'none';
             document.getElementById('pad-quiz').style.display = 'none';
             document.getElementById('pad-target').style.display = 'none';
             document.getElementById('pad-wager').style.display = 'none';
-            
-            // 如果是觀眾，永遠只顯示狀態
-            if (isSpectator) {
-                status.style.color = players[data.turn].c;
-                if (data.state === 'IDLE') status.innerText = `等待 ${players[data.turn].n} 擲骰...`;
-                else if (data.state === 'MOVING') status.innerText = `${players[data.turn].n} 移動中...`;
-                else if (data.state === 'WAGER') status.innerText = `${players[data.turn].n} 正在下注...`;
-                else if (data.state === 'QUIZ') status.innerText = `${players[data.turn].n} 正在答題...`;
-                else if (data.state === 'SELECT_TARGET') status.innerText = `${players[data.turn].n} 正在使壞...`;
-                return;
-            }
-
-            let isMyTurn = (data.turn === myTeam);
             
             if(isMyTurn) {
                 status.style.color = players[myTeam].c;
@@ -515,7 +497,10 @@
                 token = document.createElement('div'); token.className = 'token'; 
                 token.innerText = ["🐯","🐳","🐸","🦁"][pid]; 
                 token.style.color=p.c; token.style.borderColor=p.c; token.id=`t-${pid}`;
-                token.onclick = () => { if(state==='IDLE' && turn===pid && !isSwitchingTurn && confirm(`幫 ${p.n} 擲骰子？`)) rollDice(); };
+                // 只有 Host 或 單機模式可以點擊
+                if(!isSpectator) {
+                    token.onclick = () => { if(state==='IDLE' && turn===pid && !isSwitchingTurn && confirm(`幫 ${p.n} 擲骰子？`)) rollDice(); };
+                }
             }
             if(cell) cell.appendChild(token);
         }
@@ -552,7 +537,7 @@
         }
 
         function safeBroadcast(extras = {}) {
-            let payload = {type:'STATE', turn:turn, state:state, baseScore:currentBaseScore, ...extras};
+            let payload = {type:'STATE', turn:turn, state:state, baseScore:currentBaseScore, players:players, ...extras};
             try { connections.forEach(c => { if(c.open) c.send(payload); }); } catch(e) {}
         }
 
@@ -564,7 +549,7 @@
 
         function finishQuiz(btn) {
             if(btn) btn.disabled = true;
-            document.getElementById('modal').style.display = 'none';
+            closeModal(); // Close locally
             if(pendingEvent) {
                 setTimeout(() => { revealSurprise(pendingEvent); }, 500);
             } else {
@@ -590,15 +575,18 @@
                     if(i!==turn) html += `<button class="btn" style="background:${p.c}; color:white; padding:15px;" onclick="executeSpecial(${i}, null)">${p.n}</button>`;
                 });
                 html += `</div>`;
+                // Host modal
                 document.getElementById('modal-content').innerHTML = html;
-                document.getElementById('modal').style.display='flex';
+                document.getElementById('modal').style.display = 'flex';
+                // Broadcast modal to spectators
+                safeBroadcastToSpectators('SHOW_MODAL', {title, content: desc});
             }
             else nextTurn();
         }
 
         function executeSpecial(targetIdx, action) {
             if(isSwitchingTurn) return; 
-            document.getElementById('modal').style.display='none';
+            closeModal();
             if(!action) action = pendingEvent === 'Swap' ? 'swap' : 'steal';
 
             if(action === 'steal') {
@@ -631,6 +619,7 @@
             </div>`;
             document.getElementById('modal-content').innerHTML = html;
             document.getElementById('modal').style.display = 'flex';
+            safeBroadcastToSpectators('SHOW_MODAL', {title: '下注時刻', content: '正在等待下注...'});
         }
 
         function setWager(m, btn) {
@@ -656,6 +645,7 @@
             html += `</div><button id="next-btn" onclick="finishQuiz(this)">下一位 (老師請按我)</button>`;
             document.getElementById('modal-content').innerHTML = html;
             document.getElementById('modal').style.display = 'flex';
+            safeBroadcastToSpectators('SHOW_MODAL', {title: '問答時間', content: currentQ.q});
         }
 
         function checkAns(ans, el) {
@@ -674,15 +664,28 @@
         }
 
         function showModal(t, m, btn, cb) {
-            document.getElementById('modal-content').innerHTML = `<h1>${t}</h1><p>${m}</p>${btn?`<button class="btn" style="background:var(--blue); color:white; width:100%; padding:10px;" id="ok-btn">確定</button>`:''}`;
+            let html = `<h1>${t}</h1><div>${m}</div>${btn?`<button class="btn" style="background:var(--blue); color:white; width:100%; padding:10px; margin-top:20px;" id="ok-btn">確定</button>`:''}`;
+            document.getElementById('modal-content').innerHTML = html;
             document.getElementById('modal').style.display = 'flex';
+            
+            // Broadcast modal content to spectators
+            if(!isSpectator) safeBroadcastToSpectators('SHOW_MODAL', {title: t, content: m});
+
             if(btn) document.getElementById('ok-btn').onclick = function() { 
                 this.disabled = true;
-                document.getElementById('modal').style.display = 'none'; 
+                closeModal();
                 if(cb) cb(); 
             };
         }
-        function closeModal() { document.getElementById('modal').style.display = 'none'; }
+        
+        function closeModal() { 
+            document.getElementById('modal').style.display = 'none'; 
+            safeBroadcastToSpectators('CLOSE_MODAL');
+        }
+
+        function safeBroadcastToSpectators(type, data) {
+            try { connections.forEach(c => { if(c.open) c.send({type: type, ...data}); }); } catch(e) {}
+        }
 
         function victory(n) {
             confetti();
